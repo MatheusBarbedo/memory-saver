@@ -95,7 +95,7 @@ Fora de um workspace com `memoria/`, os hooks respondem `{}`. A memória automá
 | `status [workspace]` | Somente leitura: instalação, contagem por tipo e contexto, pendências vencidas, expirados e inválidos |
 | `lint [workspace]` | Somente leitura: duplicata por Jaccard >= 0.5, contradição por inversão de negação, link `[[...]]` quebrado, YAML inválido, `superseded_by` sem registro, pendências vencidas, expirados e dado sensível |
 | `indexar [workspace]` | Refaz o `INDICE.md` |
-| `mapa [workspace]` | Gera `memoria/graphify-out/graph.json` (registros, contextos, tipos e seções dos README gerais; arestas `[[links]]`, registro para contexto e tipo, `superseded_by`) e, com o graphify instalado, roda o `cluster-only` (relatório e `graph.html`) para o `query`, `path` e `explain` |
+| `mapa [workspace]` | Gera `memoria/graphify-out/graph.json` (um nó por registro e por seção dos README gerais, com tipo e contexto como atributos; arestas `[[links]]`, `superseded_by` e, entre registros que dividem termos raros, `divide_termos` com os termos) e, com o graphify instalado, roda o `cluster-only` (relatório e `graph.html`) para o `query`, `path` e `explain` |
 | `migrar [workspace]` | Lê a estrutura antiga (arquivos soltos por tipo, frontmatter com `titulo`, `resumo`, `assuntos`...) e grava só um plano em markdown (`--saida <arquivo>`, padrão `plano-migracao.md`): origem, destino tipo/contexto, conversão do frontmatter e os casos duvidosos. `--aplicar` executa |
 | `stats [workspace]` | O que foi injetado, quantas vezes, e o que nunca casou com nenhum pedido |
 

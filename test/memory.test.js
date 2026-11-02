@@ -278,7 +278,7 @@ test("lint e status são somente leitura e acham duplicata, contradição, link 
   assert.equal(info.invalidas.length, 1);
 });
 
-test("mapa gera graph.json no formato do graphify com registro, contexto, tipo, seção e arestas", () => {
+test("mapa gera graph.json no formato do graphify só com registros, sem nós de tipo nem de contexto", () => {
   iniciar();
   registro(workspace, "decisoes", "app", "banco", { description: "SQLite em memória", type: "decision" }, "Ver [[perfil]].\n");
   registro(workspace, "feedback", "app", "perfil", { description: "perfil do dev", type: "user" });
@@ -288,13 +288,26 @@ test("mapa gera graph.json no formato do graphify com registro, contexto, tipo, 
   const grafo = JSON.parse(fs.readFileSync(path.join(memoria(), "graphify-out", "graph.json"), "utf8"));
   assert.deepEqual([grafo.directed, grafo.multigraph], [true, false]);
   const ids = grafo.nodes.map(no => no.id);
-  for (const id of ["registro:decisoes/app/banco.md", "registro:feedback/README.md#sem-travessao", "contexto:app", "contexto:geral", "tipo:decisoes", "tipo:feedback"]) assert.ok(ids.includes(id), id);
+  for (const id of ["registro:decisoes/app/banco.md", "registro:feedback/README.md#sem-travessao"]) assert.ok(ids.includes(id), id);
+  assert.ok(ids.every(id => id.startsWith("registro:")));
+  assert.equal(grafo.nodes.find(no => no.id === "registro:feedback/README.md#sem-travessao").contexto, "geral");
   const tem = (source, target, relation) => grafo.links.some(aresta => aresta.source === source && aresta.target === target && aresta.relation === relation && aresta.confidence === "EXTRACTED");
-  assert.ok(tem("registro:decisoes/app/banco.md", "contexto:app", "pertence_a"));
-  assert.ok(tem("registro:decisoes/app/banco.md", "tipo:decisoes", "pertence_a"));
   assert.ok(tem("registro:decisoes/app/banco.md", "registro:feedback/app/perfil.md", "cita"));
   assert.ok(tem("registro:decisoes/app/velha.md", "registro:decisoes/app/banco.md", "substituida_por"));
-  assert.ok(tem("registro:feedback/README.md#sem-travessao", "contexto:geral", "pertence_a"));
+});
+
+test("mapa liga registros que dividem termos raros e ignora termos comuns", () => {
+  iniciar();
+  registro(workspace, "decisoes", "infra", "docker-wsl", { description: "Docker roda no WSL", type: "decision" }, "Containers do Postgres no Ubuntu.\n");
+  registro(workspace, "decisoes", "api", "persistencia", { description: "API usa Postgres", type: "decision" }, "Testcontainers sobe Postgres no Docker.\n");
+  for (let i = 0; i < 40; i += 1) registro(workspace, "feedback", "geral", `regra-${i}`, { description: `regra número ${i} do projeto`, type: "feedback" }, "Projeto segue a regra.\n");
+  const grafo = gerarMapa(memoria());
+  const termo = grafo.links.filter(aresta => aresta.relation === "divide_termos");
+  const par = termo.find(aresta => [aresta.source, aresta.target].sort().join("|") === "registro:decisoes/api/persistencia.md|registro:decisoes/infra/docker-wsl.md");
+  assert.ok(par);
+  assert.equal(par.confidence, "INFERRED");
+  assert.ok(par.termos.includes("postgre"));
+  assert.ok(termo.every(aresta => !aresta.termos.includes("projeto") && !aresta.termos.includes("regra")));
 });
 
 test("migrar: o plano não altera a memória; --aplicar converte, move, remove o Histórico e cria seções datadas", () => {
