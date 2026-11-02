@@ -10,7 +10,9 @@ export const lerTexto = arquivo => fs.existsSync(arquivo) ? fs.readFileSync(arqu
 
 export function gravarTexto(arquivo, texto) {
   fs.mkdirSync(path.dirname(arquivo), { recursive: true });
-  fs.writeFileSync(arquivo, texto, "utf8");
+  const temporario = `${arquivo}.${process.pid}.tmp`;
+  fs.writeFileSync(temporario, texto, "utf8");
+  fs.renameSync(temporario, arquivo);
 }
 
 export function lerJson(arquivo, padrao = null) {
@@ -28,7 +30,6 @@ export const normalizarCaminho = caminho => {
 
 const chaveDe = memoriaDir => crypto.createHash("sha1").update(normalizarCaminho(memoriaDir)).digest("hex").slice(0, 16);
 
-export const arquivoCache = memoriaDir => path.join(pastaEstado(), "cache", `${chaveDe(memoriaDir)}.json`);
 export const arquivoStats = memoriaDir => path.join(pastaEstado(), "stats", `${chaveDe(memoriaDir)}.json`);
 export const arquivoWorkspaces = () => path.join(pastaEstado(), "workspaces.json");
 

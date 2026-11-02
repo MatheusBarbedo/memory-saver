@@ -4,7 +4,10 @@ import { rodarHook } from "./src/hooks.js";
 import { desinstalarMaquina, instalarMaquina, planejarInit } from "./src/instalador.js";
 import { acharMemoria } from "./src/memoria.js";
 import { atualizarIndice } from "./src/indice.js";
-import { revisar, stats, status } from "./src/relatorios.js";
+import { lint, stats, status } from "./src/relatorios.js";
+import { ARQUIVO_MAPA, gerarMapa } from "./src/mapa.js";
+import { aplicarMigracao, gerarPlanoMd, planejarMigracao, resumoDoPlano } from "./src/migrar.js";
+import { gravarTexto } from "./src/estado.js";
 
 const AJUDA = `Uso: node memory.js <comando>
 
@@ -14,19 +17,25 @@ const AJUDA = `Uso: node memory.js <comando>
        --importar                 importa a memória nativa encontrada para este workspace
        --importar-de <pasta>[=<escopo>]   importa de outra pasta de memória (pode repetir)
        --sim                      aplica sem perguntar
-  status [workspace]              instalação, contagem por tipo e pendências vencidas
+  status [workspace]              instalação, contagem por tipo e contexto, vencidos e inválidos (somente leitura)
+  lint [workspace]                duplicata, contradição, link [[...]] quebrado, YAML inválido, segredos (somente leitura)
   indexar [workspace]             refaz o INDICE.md
-  revisar [workspace]             aponta o que precisa de cuidado na memória
+  mapa [workspace]                gera memoria/graphify-out/graph.json para o graphify
+  migrar [workspace]              gera o plano para a estrutura tipo/contexto (não altera a memória)
+       --saida <arquivo>          onde gravar o plano (padrão: plano-migracao.md na pasta atual)
+       --aplicar                  executa a migração (peça antes de usar)
   stats [workspace]               o que foi injetado e o que nunca casou
   hook <evento>                   entrada dos hooks do Claude Code`;
 
 function lerArgs(argv) {
-  const opcoes = { sim: false, importar: false, importarDe: [] };
+  const opcoes = { sim: false, importar: false, importarDe: [], aplicar: false, saida: null };
   const posicionais = [];
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--sim") opcoes.sim = true;
     else if (argv[i] === "--importar") opcoes.importar = true;
     else if (argv[i] === "--importar-de") opcoes.importarDe.push(argv[++i]);
+    else if (argv[i] === "--aplicar") opcoes.aplicar = true;
+    else if (argv[i] === "--saida") opcoes.saida = argv[++i];
     else posicionais.push(argv[i]);
   }
   return { comando: posicionais[0], alvo: posicionais[1], opcoes };
@@ -96,33 +105,58 @@ async function main(argv) {
     console.log(`memory-saver ${info.instalado ? "instalado nesta máquina" : "NÃO instalado nesta máquina (rode: node memory.js install)"}`);
     if (!info.memoria) return console.log("Nenhuma memoria/ neste workspace.");
     console.log(`Memória: ${info.memoria}`);
-    console.log(`Entradas: ${info.total}  ${Object.entries(info.porTipo).map(([tipo, n]) => `${tipo}: ${n}`).join("  ")}`);
-    console.log(`Status: ${Object.entries(info.porStatus).map(([nome, n]) => `${nome}: ${n}`).join("  ") || "nenhuma"}`);
+    console.log(`Registros: ${info.total} (ativos: ${info.ativos})  ${Object.entries(info.porPasta).map(([pasta, n]) => `${pasta}: ${n}`).join("  ")}`);
+    console.log(`Contextos: ${Object.entries(info.porContexto).sort((a, b) => b[1] - a[1]).map(([contexto, n]) => `${contexto}: ${n}`).join("  ") || "nenhum"}`);
     imprimirLista("Pendências vencidas", info.vencidas);
-    if (info.aRevisar) console.log(`
-${info.aRevisar} entrada(s) com revisão marcada que já chegou: rode revisar.`);
+    imprimirLista("Expirados", info.expiradas);
     imprimirLista("Frontmatter inválido", info.invalidas);
     return;
   }
 
   if (comando === "indexar") {
-    const memoriaDir = memoriaOuErro(alvo);
-    const { entradas, mudou } = atualizarIndice(memoriaDir, { forcar: true });
-    console.log(`INDICE.md ${mudou ? "atualizado" : "já estava em dia"} (${entradas.length} entradas).`);
+    const { entradas, mudou } = atualizarIndice(memoriaOuErro(alvo));
+    console.log(`INDICE.md ${mudou ? "atualizado" : "já estava em dia"} (${entradas.length} registros).`);
     return;
   }
 
-  if (comando === "revisar") {
-    const achados = revisar(memoriaOuErro(alvo));
+  if (comando === "lint") {
+    const achados = lint(memoriaOuErro(alvo));
+    imprimirLista("Frontmatter inválido", achados.invalidas);
+    imprimirLista("Possíveis duplicatas", achados.duplicatas);
+    imprimirLista("Nome repetido no mesmo tipo", achados.nomesRepetidos);
+    imprimirLista("Possíveis contradições (a mais nova vence; a antiga ganha superseded_by)", achados.contradicoes);
+    imprimirLista("Links [[...]] quebrados", achados.linksQuebrados);
+    imprimirLista("superseded_by sem registro", achados.substituidaSemDestino);
     imprimirLista("Pendências vencidas", achados.vencidas);
     imprimirLista("Revisão marcada que já chegou (veja se ainda vale)", achados.aRevisar);
-    imprimirLista("Possíveis duplicatas", achados.duplicatas);
-    imprimirLista("Links quebrados", achados.linksQuebrados);
-    imprimirLista("Substituída sem substituida_por", achados.substituidaSemDestino);
-    imprimirLista("Frontmatter inválido", achados.invalidas);
+    imprimirLista("Expirados (candidatos a limpar)", achados.expiradas);
     imprimirLista("Possível dado sensível", achados.sensiveis);
-    imprimirLista("Vale fora deste workspace", achados.valeForaDaqui);
     if (!Object.values(achados).some(lista => lista.length)) console.log("Nada a revisar.");
+    return;
+  }
+
+  if (comando === "mapa") {
+    const memoriaDir = memoriaOuErro(alvo);
+    const grafo = gerarMapa(memoriaDir);
+    console.log(`${path.join(memoriaDir, ARQUIVO_MAPA)} gerado (${grafo.nodes.length} nós, ${grafo.links.length} arestas).`);
+    return;
+  }
+
+  if (comando === "migrar") {
+    const memoriaDir = memoriaOuErro(alvo);
+    const plano = planejarMigracao(memoriaDir);
+    const resumo = resumoDoPlano(plano);
+    if (opcoes.aplicar) {
+      const { aplicados, pulados } = aplicarMigracao(memoriaDir, plano);
+      atualizarIndice(memoriaDir);
+      console.log(`Migração aplicada: ${aplicados.length} registro(s) convertido(s), ${resumo.ignorados + pulados.length} deixado(s) onde estavam.`);
+      imprimirLista("Não gravados (origem preservada)", pulados);
+      return;
+    }
+    const arquivo = path.resolve(opcoes.saida ?? "plano-migracao.md");
+    gravarTexto(arquivo, gerarPlanoMd(plano, memoriaDir));
+    console.log(`Plano gravado em ${arquivo}. Nada foi alterado na memória.`);
+    console.log(`Convertidos: ${resumo.convertidos}  ignorados: ${resumo.ignorados}  duvidosos: ${resumo.duvidosos}`);
     return;
   }
 

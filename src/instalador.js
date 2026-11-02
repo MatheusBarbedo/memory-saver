@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { arquivoWorkspaces, gravarJson, gravarTexto, hoje, lerJson, lerTexto, normalizarCaminho, pastaClaude } from "./estado.js";
 import { lerFrontmatter, escreverFrontmatter } from "./frontmatter.js";
-import { PASTA, TIPOS } from "./memoria.js";
+import { PASTA, PASTAS, README, slug } from "./memoria.js";
 import { atualizarIndice } from "./indice.js";
 import { detectarSensivel } from "./sensivel.js";
 
@@ -102,39 +102,18 @@ function lerOrigemExplicita(texto) {
 }
 
 const PREFIXOS_NATIVOS = /^(feedback|project|projeto|user|usuario|reference|referencia|ref|md)[-_]+/i;
-const PALAVRAS_VAZIAS = new Set(["de", "do", "da", "dos", "das", "e", "em", "no", "na", "nos", "nas", "o", "a", "os", "as", "um", "uma", "para", "pra", "por", "com", "sem", "the", "and", "for", "with", "of", "to", "in", "on", "md", "feedback", "project", "projeto", "user", "usuario", "reference", "ref", "referencia", "nao", "sim", "sempre", "nunca", "antes", "depois", "apos", "quando", "como", "mais", "menos", "sobre", "ate", "always", "never", "before", "after", "both", "only", "dont", "use", "usar", "from", "into", "not", "all", "any"]);
-const slug = texto => texto.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-const humanizar = nome => {
-  const texto = nome.replace(PREFIXOS_NATIVOS, "").replace(/[-_]+/g, " ").trim();
-  return texto.charAt(0).toUpperCase() + texto.slice(1);
-};
+const NATIVO = { user: { pasta: "feedback", type: "user" }, feedback: { pasta: "feedback", type: "feedback" }, reference: { pasta: "referencias", type: "reference" }, project: { pasta: "aprendizados", type: "project" } };
 
-export function converterNativa(texto, nomeArquivo, escopo, dataCriacao, dataHoje) {
+export function converterNativa(texto, nomeArquivo, contextoPadrao, dataHoje) {
   const { dados, corpo } = lerFrontmatter(texto);
   const d = dados ?? {};
-  const tipoNativo = String(d.type ?? "project").toLowerCase();
-  const tipo = { user: "feedback", feedback: "feedback", reference: "referencia", project: "aprendizado" }[tipoNativo] ?? "aprendizado";
+  const tipoNativo = String(d.type ?? d.metadata?.type ?? "project").toLowerCase();
+  const { pasta, type } = NATIVO[tipoNativo] ?? NATIVO.project;
   const nome = typeof d.name === "string" && d.name.trim() ? d.name.trim() : path.basename(nomeArquivo, ".md");
-  const titulo = humanizar(nome) || nome;
-  const primeiraLinha = corpo.split(/\r?\n/).map(linha => linha.trim()).find(linha => linha && !linha.startsWith("#")) ?? titulo;
-  const resumo = (typeof d.description === "string" && d.description.trim()) || primeiraLinha.slice(0, 200);
-  const palavras = slug(nome.replace(PREFIXOS_NATIVOS, "")).split("-").filter(palavra => palavra.length >= 3 && !PALAVRAS_VAZIAS.has(palavra) && !/^\d+$/.test(palavra));
-  const assuntos = [...new Set([...(escopo !== "workspace" ? [escopo] : []), ...palavras])].slice(0, 8);
-  const frontmatter = {
-    titulo,
-    resumo,
-    tipo,
-    assuntos: assuntos.length ? assuntos : [slug(nome) || "importado"],
-    escopo,
-    status: "vigente",
-    criado: dataCriacao,
-    atualizado: dataHoje,
-    revisar_em: tipoNativo === "project" ? dataHoje : undefined,
-    vale_fora_daqui: tipoNativo === "user" ? true : undefined,
-  };
-  const historico = `\n\n## Histórico\n\n- ${dataHoje}: importada da memória nativa do Claude Code (${tipoNativo}${tipoNativo === "project" ? ", revisar se ainda vale" : ""}).\n`;
+  const primeiraLinha = corpo.split(/\r?\n/).map(linha => linha.trim()).find(linha => linha && !linha.startsWith("#")) ?? nome;
+  const description = (typeof d.description === "string" && d.description.trim()) || primeiraLinha.slice(0, 200);
   const nomeDestino = slug(nome.replace(PREFIXOS_NATIVOS, "")) || slug(nome) || "entrada";
-  return { tipo, nomeDestino: escopo !== "workspace" && !nomeDestino.startsWith(slug(escopo)) ? `${slug(escopo)}-${nomeDestino}` : nomeDestino, conteudo: escreverFrontmatter(frontmatter) + "\n" + corpo.trim() + historico };
+  return { pasta, contexto: contextoPadrao, nomeDestino, conteudo: `${escreverFrontmatter({ name: nomeDestino, description, metadata: { type, modified: dataHoje } })}\n${corpo.trim()}\n` };
 }
 
 function escolherArquivoImport(workspace) {
@@ -173,11 +152,17 @@ export function planejarInit(workspaceBruto, { importar = false, importarDe = []
   const info = registro[chave] ?? { criados: [] };
   const criados = new Set(info.criados);
 
-  for (const pasta of ["", ...Object.values(TIPOS)]) {
+  for (const pasta of ["", ...PASTAS]) {
     const alvo = path.join(memoriaDir, pasta);
     if (fs.existsSync(alvo)) continue;
     acoes.push(`criar ${paraBarra(path.relative(workspace, alvo))}/`);
     passos.push(() => fs.mkdirSync(alvo, { recursive: true }));
+  }
+  for (const pasta of PASTAS) {
+    const readme = path.join(memoriaDir, pasta, README);
+    if (fs.existsSync(readme)) continue;
+    acoes.push(`criar ${PASTA}/${pasta}/${README}`);
+    passos.push(() => gravarTexto(readme, `# ${pasta.charAt(0).toUpperCase()}${pasta.slice(1)} gerais\n`));
   }
   const comoUsar = path.join(memoriaDir, "COMO-USAR.md");
   if (!fs.existsSync(comoUsar)) {
@@ -218,10 +203,11 @@ export function planejarInit(workspaceBruto, { importar = false, importarDe = []
     }
     for (const nomeArquivo of mdsDe(origem.pasta)) {
       const arquivoOrigem = path.join(origem.pasta, nomeArquivo);
-      const criacao = hoje(fs.statSync(arquivoOrigem).mtime);
-      const convertida = converterNativa(fs.readFileSync(arquivoOrigem, "utf8"), nomeArquivo, origem.escopo, criacao, dataHoje);
-      let destino = path.join(memoriaDir, TIPOS[convertida.tipo], `${convertida.nomeDestino}.md`);
-      for (let n = 2; destinos.has(normalizarCaminho(destino)); n++) destino = path.join(memoriaDir, TIPOS[convertida.tipo], `${convertida.nomeDestino}-${n}.md`);
+      const contexto = slug(origem.escopo !== "workspace" ? origem.escopo : path.basename(workspace)) || "geral";
+      const convertida = converterNativa(fs.readFileSync(arquivoOrigem, "utf8"), nomeArquivo, contexto, dataHoje);
+      const pastaDestino = path.join(memoriaDir, convertida.pasta, convertida.contexto);
+      let destino = path.join(pastaDestino, `${convertida.nomeDestino}.md`);
+      for (let n = 2; destinos.has(normalizarCaminho(destino)); n++) destino = path.join(pastaDestino, `${convertida.nomeDestino}-${n}.md`);
       destinos.add(normalizarCaminho(destino));
       if (fs.existsSync(destino)) continue;
       const sensivel = detectarSensivel(convertida.conteudo);
@@ -247,7 +233,7 @@ export function planejarInit(workspaceBruto, { importar = false, importarDe = []
     for (const passo of passos) passo();
     registro[chave] = { ...info, criados: [...criados].sort() };
     gravarJson(arquivoWorkspaces(), registro);
-    atualizarIndice(memoriaDir, { forcar: true });
+    atualizarIndice(memoriaDir);
   }
 
   return { workspace, memoriaDir, acoes, avisos, encontradas, aplicar };

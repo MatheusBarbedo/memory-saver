@@ -1,4 +1,4 @@
-const ORDEM = ["titulo", "resumo", "tipo", "assuntos", "escopo", "status", "criado", "atualizado", "revisar_em", "substituida_por", "vale_fora_daqui"];
+const ORDEM_METADATA = ["type", "modified", "pinned", "expires", "superseded_by", "review"];
 
 function escalar(bruto) {
   const texto = bruto.trim();
@@ -19,45 +19,61 @@ function valor(bruto) {
   return escalar(texto);
 }
 
+const recuo = linha => linha.length - linha.trimStart().length;
+const SEM_ASPAS_COM_DOIS_PONTOS = bruto => !/^["'\[{>|]/.test(bruto) && /:(\s|$)/.test(bruto);
+const FRONTMATTER_DUPLICADO = /^\s*---\r?\n(?:[ \t]*[A-Za-z_][\w-]*:[^\n]*\r?\n)+\s*---/;
+
 export function lerFrontmatter(texto) {
   const limpo = texto.replace(/^﻿/, "");
   const bloco = limpo.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
-  if (!bloco) return { dados: null, corpo: limpo };
+  if (!bloco) return { dados: null, corpo: limpo, problemas: [] };
+  const corpo = limpo.slice(bloco[0].length);
+  const problemas = FRONTMATTER_DUPLICADO.test(corpo) ? ["frontmatter duplicado"] : [];
   const dados = {};
   const linhas = bloco[1].split(/\r?\n/);
+  let alvo = dados;
   let lista = null;
   for (let i = 0; i < linhas.length; i++) {
     const linha = linhas[i];
     if (!linha.trim() || linha.trim().startsWith("#")) continue;
+    if (recuo(linha) === 0) alvo = dados;
     const item = linha.match(/^\s*-\s+(.*)$/);
     if (item && lista) {
-      dados[lista].push(escalar(item[1]));
+      alvo[lista].push(escalar(item[1]));
       continue;
     }
     const par = linha.match(/^\s*([A-Za-z_][\w-]*):(?:\s+(.*))?$/);
     if (!par) continue;
     const [, chave, bruto = ""] = par;
+    if (Object.hasOwn(alvo, chave)) problemas.push(`chave duplicada: ${chave}`);
     lista = null;
     if (/^[>|][-+]?$/.test(bruto.trim())) {
       const continuacao = [];
       while (i + 1 < linhas.length && /^\s+\S/.test(linhas[i + 1])) continuacao.push(linhas[++i].trim());
-      dados[chave] = continuacao.join(" ");
+      alvo[chave] = continuacao.join(" ");
     } else if (bruto.trim() === "") {
-      dados[chave] = [];
-      lista = chave;
+      const proxima = linhas.slice(i + 1).find(seguinte => seguinte.trim());
+      if (recuo(linha) === 0 && proxima && recuo(proxima) > 0 && /^\s+[A-Za-z_][\w-]*:/.test(proxima)) {
+        alvo[chave] = {};
+        alvo = alvo[chave];
+      } else {
+        alvo[chave] = [];
+        lista = chave;
+      }
     } else {
-      dados[chave] = valor(bruto);
+      if (SEM_ASPAS_COM_DOIS_PONTOS(bruto.trim())) problemas.push(`${chave}: valor com dois pontos precisa de aspas`);
+      alvo[chave] = valor(bruto);
     }
   }
-  return { dados, corpo: limpo.slice(bloco[0].length) };
+  return { dados, corpo, problemas };
 }
 
 const precisaAspas = texto => texto === "" || /[:#\[\]{},"']|^\s|\s$|^[-?!&*%@`>|]/.test(texto) || texto === "true" || texto === "false";
 const formatarEscalar = item => typeof item === "boolean" ? String(item) : precisaAspas(String(item)) ? JSON.stringify(String(item)) : String(item);
 
-export function escreverFrontmatter(dados) {
-  const linhas = ORDEM
-    .filter(chave => dados[chave] !== undefined && dados[chave] !== null && dados[chave] !== "")
-    .map(chave => `${chave}: ${Array.isArray(dados[chave]) ? `[${dados[chave].map(formatarEscalar).join(", ")}]` : formatarEscalar(dados[chave])}`);
-  return `---\n${linhas.join("\n")}\n---\n`;
+export function escreverFrontmatter({ name, description, metadata }) {
+  const linhasMetadata = ORDEM_METADATA
+    .filter(chave => metadata[chave] !== undefined && metadata[chave] !== null && metadata[chave] !== "")
+    .map(chave => `  ${chave}: ${formatarEscalar(metadata[chave])}`);
+  return `---\nname: ${formatarEscalar(name)}\ndescription: ${JSON.stringify(String(description))}\nmetadata:\n${linhasMetadata.join("\n")}\n---\n`;
 }

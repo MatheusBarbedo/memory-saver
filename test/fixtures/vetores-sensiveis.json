@@ -1,0 +1,70 @@
+{
+  "credenciais": [
+    "sk-leak-0123456789abcdef0123",
+    "ghp_FAKE0123456789ABCDEFGHIJ0123",
+    "AKIAFAKEFAKEFAKEFAKE",
+    "github_pat_11ABCDEFG0123456789_abcdefghijklmnopqrstuvwxyz",
+    "sk_live_0123456789abcdefABCD",
+    "ASIAFAKEFAKEFAKEFAKE",
+    "AIzaSyFAKE0123456789abcdefghijklmnopq",
+    "xoxb-0123456789-abcdefghij",
+    "xapp-1-A0123456789-abcdefghij",
+    "EAAGFAKE0123456789abcdefghijkl",
+    "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.c2lnbmF0dXJl",
+    "123456789:AAFakeFakeFakeFakeFakeFakeFakeFake123"
+  ],
+  "invisiveis": [
+    "​",
+    "‌",
+    "‍",
+    "⁠",
+    "﻿",
+    "­",
+    "󠀁"
+  ],
+  "atribuicoes": [
+    "api_key = \"abcd1234efgh5678\"",
+    "OPENAI_API_KEY=abcdef123456",
+    "DB_PASSWORD: hunter2hunter2",
+    "Authorization: Bearer abcdefghijklmnopqrstuvwxyz",
+    "postgres://app:minhasenha@localhost/db",
+    "senha: Abc12345",
+    "chave = 9f8e7d6c5b",
+    "DB_PASS=abc123xyz",
+    "DB_PWD=abc123xyz"
+  ],
+  "blocos_de_chave_privada": [
+    "before\n-----BEGIN PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAA\n-----END PRIVATE KEY-----\nafter",
+    "before\n-----BEGIN PGP PRIVATE KEY BLOCK-----\nVersion: 1\n\nb3BlbnNzaC1rZXktdjEAAAAA\n-----END PGP PRIVATE KEY BLOCK-----\nafter",
+    "$ head -3 key.pem\n-----BEGIN PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAA\nb3BlbnNzaC1rZXktdjEAAAAA\n$ ls",
+    "-----BEGIN RSA PRIVATE KEY-----\r\nb3BlbnNzaC1rZXktdjEAAAAA\r\nb3BlbnNzaC1rZXktdjEAAAAA\r\n",
+    "{\"stdout\":\"-----BEGIN OPENSSH PRIVATE KEY-----\\nb3BlbnNzaC1rZXktdjEAAAAA\\nb3BlbnNzaC1rZXktdjEAAAAA\"}",
+    "-----BEGIN RSA PRIVATE KEY-----\nProc-Type: 4,ENCRYPTED\nDEK-Info: AES-128-CBC,0123456789ABCDEF\n\nb3BlbnNzaC1rZXktdjEAAAAA\n",
+    "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAA"
+  ],
+  "falsos_positivos": [
+    "family 👨‍👩‍👧 emoji",
+    "keycaps 1️⃣ #️⃣",
+    "flag 🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scotland",
+    "می‌خواهم",
+    "क्‍ष",
+    "สวัสดี​ครับ",
+    "שלום‏ world",
+    "co­operate",
+    "﻿starts with a byte-order mark",
+    "-----BEGIN PGP PUBLIC KEY BLOCK-----\n\nmQENBFakeFakeFakeFakeFakeFakeFake\n-----END PGP PUBLIC KEY BLOCK-----",
+    "The file starts with -----BEGIN OPENSSH PRIVATE KEY----- and that is expected.",
+    "-----BEGIN RSA PRIVATE KEY-----\nThat header marks a PKCS#1 key.",
+    "const HEADER: &str = \"-----BEGIN RSA PRIVATE KEY-----\";\nparseHeaderLineFromInput(x)",
+    "CPF 123.456.789-00",
+    "Password=<SENHA>;",
+    "api_key = ${API_KEY}",
+    "token: curto",
+    "o arquivo de chave fica em ~/.ssh/id_rsa",
+    "versão 2026-10-29 e ticket ABC-123",
+    "a branch sk-learn-notes e o commit ghp-fix não são credenciais",
+    "token: precisa renovar toda semana",
+    "senha: obrigatoria",
+    "chave: ver o painel"
+  ]
+}
