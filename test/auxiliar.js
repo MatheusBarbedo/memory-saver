@@ -14,6 +14,7 @@ export function criarAmbiente() {
   process.env.CLAUDE_CONFIG_DIR = ambiente.claude;
   process.env.MEMORY_SAVER_HOME = path.join(tmp, "estado");
   process.env.MEMORY_SAVER_TETO = tmp;
+  process.env.MEMORY_SAVER_GRAPHIFY = path.join(tmp, "sem-graphify");
   fs.mkdirSync(ambiente.workspace, { recursive: true });
   return ambiente;
 }

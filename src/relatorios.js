@@ -5,6 +5,7 @@ import { ativa, expirada, lerEntradas, pendenciaVencida, PASTAS, revisaoVencida 
 import { detectarSensivel } from "./sensivel.js";
 import { normalizar, termos } from "./casamento.js";
 import { temHooks } from "./instalador.js";
+import { graphifyLigado } from "./mapa.js";
 
 const LIMIAR_DUPLICATA = 0.5;
 const LIMIAR_MESMO_ASSUNTO = 0.4;
@@ -25,6 +26,7 @@ export function status(memoriaDir) {
   return {
     instalado,
     memoria: memoriaDir,
+    graphify: graphifyLigado(memoriaDir),
     total: entradas.length,
     ativos: validas.filter(item => ativa(item, dataHoje)).length,
     porPasta,

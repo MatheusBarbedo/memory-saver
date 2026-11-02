@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline/promises";
 import { rodarHook } from "./src/hooks.js";
@@ -5,7 +6,7 @@ import { desinstalarMaquina, instalarMaquina, planejarInit } from "./src/instala
 import { acharMemoria } from "./src/memoria.js";
 import { atualizarIndice } from "./src/indice.js";
 import { lint, stats, status } from "./src/relatorios.js";
-import { ARQUIVO_MAPA, gerarMapa } from "./src/mapa.js";
+import { agruparMapa, ARQUIVO_MAPA, gerarMapa } from "./src/mapa.js";
 import { aplicarMigracao, gerarPlanoMd, planejarMigracao, resumoDoPlano } from "./src/migrar.js";
 import { gravarTexto } from "./src/estado.js";
 
@@ -16,6 +17,7 @@ const AJUDA = `Uso: node memory.js <comando>
   init [workspace]                cria memoria/ no workspace
        --importar                 importa a memória nativa encontrada para este workspace
        --importar-de <pasta>[=<escopo>]   importa de outra pasta de memória (pode repetir)
+       --graphify                 liga o mapa do graphify na memória (instala o graphify se faltar; opcional)
        --sim                      aplica sem perguntar
   status [workspace]              instalação, contagem por tipo e contexto, vencidos e inválidos (somente leitura)
   lint [workspace]                duplicata, contradição, link [[...]] quebrado, YAML inválido, segredos (somente leitura)
@@ -28,13 +30,14 @@ const AJUDA = `Uso: node memory.js <comando>
   hook <evento>                   entrada dos hooks do Claude Code`;
 
 function lerArgs(argv) {
-  const opcoes = { sim: false, importar: false, importarDe: [], aplicar: false, saida: null };
+  const opcoes = { sim: false, importar: false, importarDe: [], aplicar: false, saida: null, graphify: false };
   const posicionais = [];
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--sim") opcoes.sim = true;
     else if (argv[i] === "--importar") opcoes.importar = true;
     else if (argv[i] === "--importar-de") opcoes.importarDe.push(argv[++i]);
     else if (argv[i] === "--aplicar") opcoes.aplicar = true;
+    else if (argv[i] === "--graphify") opcoes.graphify = true;
     else if (argv[i] === "--saida") opcoes.saida = argv[++i];
     else posicionais.push(argv[i]);
   }
@@ -105,6 +108,7 @@ async function main(argv) {
     console.log(`memory-saver ${info.instalado ? "instalado nesta máquina" : "NÃO instalado nesta máquina (rode: node memory.js install)"}`);
     if (!info.memoria) return console.log("Nenhuma memoria/ neste workspace.");
     console.log(`Memória: ${info.memoria}`);
+    console.log(`Mapa do graphify: ${info.graphify ? "ligado (refeito a cada escrita)" : "desligado (para ligar: node memory.js init --graphify)"}`);
     console.log(`Registros: ${info.total} (ativos: ${info.ativos})  ${Object.entries(info.porPasta).map(([pasta, n]) => `${pasta}: ${n}`).join("  ")}`);
     console.log(`Contextos: ${Object.entries(info.porContexto).sort((a, b) => b[1] - a[1]).map(([contexto, n]) => `${contexto}: ${n}`).join("  ") || "nenhum"}`);
     imprimirLista("Pendências vencidas", info.vencidas);
@@ -139,6 +143,7 @@ async function main(argv) {
     const memoriaDir = memoriaOuErro(alvo);
     const grafo = gerarMapa(memoriaDir);
     console.log(`${path.join(memoriaDir, ARQUIVO_MAPA)} gerado (${grafo.nodes.length} nós, ${grafo.links.length} arestas).`);
+    console.log(agruparMapa(memoriaDir) ? "graphify cluster-only rodou: GRAPH_REPORT.md e graph.html atualizados." : "graphify não encontrado: só o graph.json foi gerado. Para instalar: node memory.js init --graphify");
     return;
   }
 
@@ -149,6 +154,8 @@ async function main(argv) {
     if (opcoes.aplicar) {
       const { aplicados, pulados } = aplicarMigracao(memoriaDir, plano);
       atualizarIndice(memoriaDir);
+      gravarTexto(path.join(memoriaDir, "COMO-USAR.md"), fs.readFileSync(new URL("./templates/COMO-USAR.md", import.meta.url), "utf8"));
+      console.log("COMO-USAR.md trocado pelo protocolo novo. Rode node memory.js install para atualizar as skills.");
       console.log(`Migração aplicada: ${aplicados.length} registro(s) convertido(s), ${resumo.ignorados + pulados.length} deixado(s) onde estavam.`);
       imprimirLista("Não gravados (origem preservada)", pulados);
       return;

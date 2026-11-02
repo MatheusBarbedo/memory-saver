@@ -91,10 +91,11 @@ Fora de um workspace com `memoria/`, os hooks respondem `{}`. A memória automá
 | `install` / `uninstall` | Registra ou remove hooks e skills. `uninstall` nunca apaga nenhuma pasta `memoria/` |
 | `init [workspace]` | Cria `memoria/` com os tipos e seus `README.md`, liga o protocolo no `CLAUDE.md` e desliga a memória nativa no workspace. Idempotente |
 | `init ... --importar` / `--importar-de <pasta>[=<escopo>]` | Importa a memória nativa do Claude Code (ou de outra pasta) para tipo/contexto. O original fica onde está |
+| `init ... --graphify` | Opcional: liga o mapa do graphify (`graphifyy` no PyPI) na memória. Instala o CLI se faltar (`uv tool install graphifyy`), gera o mapa e, daí em diante, o hook de escrita refaz o mapa em segundo plano. Sem LLM (`GRAPHIFY_BACKEND=none`) |
 | `status [workspace]` | Somente leitura: instalação, contagem por tipo e contexto, pendências vencidas, expirados e inválidos |
 | `lint [workspace]` | Somente leitura: duplicata por Jaccard >= 0.5, contradição por inversão de negação, link `[[...]]` quebrado, YAML inválido, `superseded_by` sem registro, pendências vencidas, expirados e dado sensível |
 | `indexar [workspace]` | Refaz o `INDICE.md` |
-| `mapa [workspace]` | Gera `memoria/graphify-out/graph.json` (registros, contextos, tipos e seções dos README gerais; arestas `[[links]]`, registro para contexto e tipo, `superseded_by`) para o `graphify cluster-only`, `query`, `path` e `explain` |
+| `mapa [workspace]` | Gera `memoria/graphify-out/graph.json` (registros, contextos, tipos e seções dos README gerais; arestas `[[links]]`, registro para contexto e tipo, `superseded_by`) e, com o graphify instalado, roda o `cluster-only` (relatório e `graph.html`) para o `query`, `path` e `explain` |
 | `migrar [workspace]` | Lê a estrutura antiga (arquivos soltos por tipo, frontmatter com `titulo`, `resumo`, `assuntos`...) e grava só um plano em markdown (`--saida <arquivo>`, padrão `plano-migracao.md`): origem, destino tipo/contexto, conversão do frontmatter e os casos duvidosos. `--aplicar` executa |
 | `stats [workspace]` | O que foi injetado, quantas vezes, e o que nunca casou com nenhum pedido |
 
@@ -102,7 +103,7 @@ Na conversa: "lembra disso" ou `/lembrar` salva na hora; "revisa a memória" rod
 
 ## Migrar da estrutura antiga
 
-`node memory.js migrar <workspace>` não muda nada na memória. O contexto vem do campo `escopo`; no escopo `workspace` ele é deduzido pelo nome do arquivo (prefixo de um repositório vizinho, sufixo `-projeto`), pelos assuntos e pelo primeiro termo do nome. O que é regra geral (`vale_fora_daqui`) vira seção datada do `README.md` do tipo. Os casos incertos aparecem na seção "Duvidosos" do plano. Status `resolvida` e `obsoleta` viram `expires`, `substituida_por` vira `superseded_by`, `revisar_em` vira `review`, o `## Histórico` sai e os links relativos viram `[[name]]`.
+`node memory.js migrar <workspace>` não muda nada na memória. O contexto vem do campo `escopo`; no escopo `workspace` ele é deduzido pelo nome do arquivo (prefixo de um repositório vizinho, sufixo `-projeto`), pelos assuntos e pelo primeiro termo do nome. O que é regra geral (`vale_fora_daqui`) vira seção datada do `README.md` do tipo. Os casos incertos aparecem na seção "Duvidosos" do plano. Status `resolvida` e `obsoleta` viram `expires`, `substituida_por` vira `superseded_by`, `revisar_em` vira `review`, o `## Histórico` sai e os links relativos viram `[[name]]`. O `--aplicar` também troca o `COMO-USAR.md` da memória pelo protocolo novo; rode `install` de novo para atualizar as skills.
 
 ## Git
 

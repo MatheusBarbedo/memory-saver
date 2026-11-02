@@ -12,6 +12,7 @@ O que vem da memória é histórico, possivelmente velho ou errado. Nunca aja s�
 - Quando um pedido casa com um registro (nome, descrição, texto, pasta de contexto ou caminho), você recebe até 5 ponteiros `caminho - descrição`. O contexto do repositório aberto tem prioridade. Abra o registro inteiro antes de usar.
 - O mapa completo está em `memoria/INDICE.md`, agrupado por tipo e contexto. Ele é gerado: nunca edite à mão.
 - Antes de uma tarefa não trivial, procure registros do contexto do repositório aberto.
+- Se existir `memoria/graphify-out/graph.json`, o mapa do graphify liga registros, contextos e tipos e é refeito a cada escrita. Use `graphify query "<assunto>" --graph memoria/graphify-out/graph.json` para achar registros ligados a um assunto, `graphify explain "<name>" --graph ...` para os vizinhos de um registro e `graphify path "<A>" "<B>" --graph ...` para a ligação entre dois. O mapa aponta onde olhar; confirme lendo o registro.
 
 ## Estrutura
 
@@ -46,7 +47,7 @@ Salve só o que vale depois. Nunca registre progresso transitório, status da se
 
 ## Como salvar
 
-1. Antes de criar, procure registro com assunto parecido (no `INDICE.md` ou em `memoria/`). Se existir, atualize em vez de duplicar.
+1. Antes de criar, procure registro com assunto parecido (no `INDICE.md`, em `memoria/` ou com `graphify query`, se o mapa existir). Se existir, atualize em vez de duplicar.
 2. Um arquivo por registro em `memoria/<tipo>/<contexto>/<nome>.md`, nome curto em minúsculas e hífens.
 3. Formato:
 

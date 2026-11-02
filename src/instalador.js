@@ -7,6 +7,7 @@ import { lerFrontmatter, escreverFrontmatter } from "./frontmatter.js";
 import { PASTA, PASTAS, README, slug } from "./memoria.js";
 import { atualizarIndice } from "./indice.js";
 import { detectarSensivel } from "./sensivel.js";
+import { acharGraphify, agruparMapa, gerarMapa, graphifyLigado, instalarGraphify, PASTA_MAPA } from "./mapa.js";
 
 const RAIZ_FERRAMENTA = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const paraBarra = caminho => caminho.split(path.sep).join("/");
@@ -140,7 +141,7 @@ function blocoExclusao(texto, linhas) {
   return semBloco + prefixo + [INICIO_BLOCO, ...linhas, FIM_BLOCO].join("\n") + "\n";
 }
 
-export function planejarInit(workspaceBruto, { importar = false, importarDe = [] } = {}) {
+export function planejarInit(workspaceBruto, { importar = false, importarDe = [], graphify = false } = {}) {
   const workspace = path.resolve(workspaceBruto);
   const memoriaDir = path.join(workspace, PASTA);
   const dataHoje = hoje();
@@ -220,7 +221,7 @@ export function planejarInit(workspaceBruto, { importar = false, importarDe = []
 
   const exclusao = exclusaoGit(workspace);
   if (exclusao) {
-    const linhas = [`${exclusao.prefixo}/${PASTA}/`, ...[...criados].sort().map(item => `${exclusao.prefixo}/${item}`)];
+    const linhas = [`${exclusao.prefixo}/${PASTA}/`, `${exclusao.prefixo}/${PASTA}/${PASTA_MAPA}/`, ...[...criados].sort().map(item => `${exclusao.prefixo}/${item}`)];
     const atual = lerTexto(exclusao.arquivo);
     const novo = blocoExclusao(atual, linhas);
     if (novo !== atual) {
@@ -229,11 +230,18 @@ export function planejarInit(workspaceBruto, { importar = false, importarDe = []
     }
   }
 
+  const ligarGraphify = graphify && !graphifyLigado(memoriaDir);
+  if (ligarGraphify) acoes.push(`${acharGraphify() ? "" : "instalar o graphify (uv tool install graphifyy) e "}ligar o mapa do graphify em ${PASTA}/${PASTA_MAPA}/, refeito a cada escrita`);
+
   function aplicar() {
     for (const passo of passos) passo();
     registro[chave] = { ...info, criados: [...criados].sort() };
     gravarJson(arquivoWorkspaces(), registro);
     atualizarIndice(memoriaDir);
+    if (!ligarGraphify) return;
+    if (!acharGraphify() && !instalarGraphify()) throw new Error("não consegui instalar o graphify. Instale com: uv tool install graphifyy, e rode de novo o init --graphify");
+    gerarMapa(memoriaDir);
+    agruparMapa(memoriaDir);
   }
 
   return { workspace, memoriaDir, acoes, avisos, encontradas, aplicar };

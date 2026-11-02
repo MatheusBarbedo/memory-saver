@@ -6,6 +6,7 @@ import { atualizarIndice } from "./indice.js";
 import { casar } from "./casamento.js";
 import { cercar, limpar, montarResumo } from "./resumo.js";
 import { detectarSensivel } from "./sensivel.js";
+import { graphifyLigado, refazerMapaEmSegundoPlano } from "./mapa.js";
 
 const paraBarra = caminho => caminho.split(path.sep).join("/");
 const contexto = (evento, texto) => ({ hookSpecificOutput: { hookEventName: evento, additionalContext: texto } });
@@ -42,6 +43,7 @@ export function postToolUse(entrada) {
   if (relativo.startsWith("..") || path.isAbsolute(relativo)) return null;
   if (!PASTAS.includes(relativo.split(path.sep)[0]) || !absoluto.endsWith(".md")) return null;
   const { entradas } = atualizarIndice(memoriaDir);
+  if (graphifyLigado(memoriaDir)) refazerMapaEmSegundoPlano(memoriaDir);
   if (!fs.existsSync(absoluto)) return null;
   const nome = paraBarra(path.relative(path.dirname(memoriaDir), absoluto));
   const avisos = [];

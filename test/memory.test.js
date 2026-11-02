@@ -346,6 +346,26 @@ test("migrar: o plano não altera a memória; --aplicar converte, move, remove o
   assert.equal(por("feedback/README.md#perfil-dev").modified, "2026-01-01");
 });
 
+test("init --graphify liga o mapa e o hook de escrita o refaz em segundo plano", async () => {
+  process.env.MEMORY_SAVER_GRAPHIFY = process.execPath;
+  const plano = planejarInit(workspace, { graphify: true });
+  assert.ok(plano.acoes.some(acao => /ligar o mapa do graphify/.test(acao)));
+  plano.aplicar();
+  const grafo = path.join(memoria(), "graphify-out", "graph.json");
+  assert.ok(fs.existsSync(grafo));
+  assert.ok(!planejarInit(workspace, { graphify: true }).acoes.some(acao => /graphify/.test(acao)));
+  assert.equal(status(memoria()).graphify, true);
+
+  registro(workspace, "decisoes", "app", "banco-novo", { description: "\"Banco novo\"", type: "decision" });
+  postToolUse({ cwd: workspace, tool_name: "Write", tool_input: { file_path: path.join(memoria(), "decisoes", "app", "banco-novo.md") } });
+  let refeito = false;
+  for (let i = 0; i < 50 && !refeito; i++) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    refeito = fs.readFileSync(grafo, "utf8").includes("banco-novo");
+  }
+  assert.ok(refeito);
+});
+
 test("migrar: escopo geral vence a dedução pelo nome e não vira contexto", () => {
   fs.mkdirSync(path.join(workspace, "app-loja", ".git"), { recursive: true });
   escrever(path.join(memoria(), "feedback", "app-loja-regra.md"), "---\ntitulo: Regra\nresumo: \"Vale em todo projeto\"\ntipo: feedback\nescopo: geral\nstatus: vigente\ncriado: 2026-01-01\n---\n\nTexto.\n");
