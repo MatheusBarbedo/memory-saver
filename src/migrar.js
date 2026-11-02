@@ -7,6 +7,7 @@ import { PASTAS, README, secoesDoReadme, slug } from "./memoria.js";
 const TIPO_NOVO = { aprendizado: "project", decisao: "decision", feedback: "feedback", documentacao: "reference", pendencia: "pending", referencia: "reference" };
 const PASTA_IGNORADA = /^(memoria|node_modules)$|^\./;
 const STATUS_ENCERRADO = ["resolvida", "obsoleta"];
+const ESCOPO_GERAL = "geral";
 const PREFIXO_ANTIGO = /^(feedback|project|user|usuario|ref|reference|md)[-_]/;
 const TITULO_DO_README = pasta => `# ${pasta.charAt(0).toUpperCase()}${pasta.slice(1)} gerais\n`;
 
@@ -14,12 +15,13 @@ function contextosConhecidos(memoriaDir, antigos) {
   const irmaos = fs.readdirSync(path.dirname(memoriaDir), { withFileTypes: true })
     .filter(item => item.isDirectory() && !PASTA_IGNORADA.test(item.name) && fs.existsSync(path.join(path.dirname(memoriaDir), item.name, ".git")))
     .map(item => slug(item.name));
-  const escopos = antigos.map(antigo => String(antigo.dados?.escopo ?? "")).filter(escopo => escopo && !/^workspace/i.test(escopo)).map(slug);
+  const escopos = antigos.map(antigo => String(antigo.dados?.escopo ?? "")).filter(escopo => escopo && !/^workspace/i.test(escopo)).map(slug).filter(escopo => escopo !== ESCOPO_GERAL);
   return new Set([...irmaos, ...escopos]);
 }
 
 function deduzirContexto({ dados, stem }, conhecidos) {
   const escopo = String(dados.escopo ?? "workspace").trim();
+  if (slug(escopo) === ESCOPO_GERAL) return { contexto: null, duvida: null };
   if (!/^workspace/i.test(escopo)) {
     const contexto = slug(escopo);
     return { contexto, duvida: conhecidos.has(contexto) ? null : `escopo "${escopo}" não bate com nenhum repositório conhecido` };

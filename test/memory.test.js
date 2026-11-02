@@ -346,6 +346,13 @@ test("migrar: o plano não altera a memória; --aplicar converte, move, remove o
   assert.equal(por("feedback/README.md#perfil-dev").modified, "2026-01-01");
 });
 
+test("migrar: escopo geral vence a dedução pelo nome e não vira contexto", () => {
+  fs.mkdirSync(path.join(workspace, "app-loja", ".git"), { recursive: true });
+  escrever(path.join(memoria(), "feedback", "app-loja-regra.md"), "---\ntitulo: Regra\nresumo: \"Vale em todo projeto\"\ntipo: feedback\nescopo: geral\nstatus: vigente\ncriado: 2026-01-01\n---\n\nTexto.\n");
+  const [item] = planejarMigracao(memoria()).itens;
+  assert.deepEqual([item.geral, item.duvida, item.destino], [true, null, "feedback/README.md"]);
+});
+
 test("init importa a memória nativa encontrada e a de outra pasta para tipo/contexto, sem apagar o original", () => {
   const codigo = path.resolve(workspace).replace(/[^A-Za-z0-9]/g, "-");
   const nativa = path.join(claude, "projects", `${codigo}-app`, "memory");
