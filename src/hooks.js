@@ -7,6 +7,7 @@ import { casar } from "./casamento.js";
 import { cercar, limpar, montarResumo } from "./resumo.js";
 import { detectarSensivel } from "./sensivel.js";
 import { graphifyLigado, refazerMapaEmSegundoPlano } from "./mapa.js";
+import { blocoDoEstado, citaEstado, lerEstados, marcarInjetado } from "./estados.js";
 
 const paraBarra = caminho => caminho.split(path.sep).join("/");
 const contexto = (evento, texto) => ({ hookSpecificOutput: { hookEventName: evento, additionalContext: texto } });
@@ -17,7 +18,9 @@ export function sessionStart(entrada) {
   if (!memoriaDir) return null;
   const { entradas } = atualizarIndice(memoriaDir);
   const pasta = paraBarra(path.relative(cwd, memoriaDir)) || PASTA;
-  return contexto("SessionStart", montarResumo(entradas, { pasta, contexto: contextoAberto(cwd), dataHoje: hoje() }));
+  const aberto = contextoAberto(cwd);
+  const estados = lerEstados(memoriaDir).filter(estado => estado.contexto === aberto && marcarInjetado(entrada.session_id, estado.caminho));
+  return contexto("SessionStart", [montarResumo(entradas, { pasta, contexto: aberto, dataHoje: hoje() }), ...estados.map(estado => blocoDoEstado(estado, pasta))].join("\n\n"));
 }
 
 export function userPromptSubmit(entrada) {
@@ -26,11 +29,12 @@ export function userPromptSubmit(entrada) {
   const memoriaDir = acharMemoria(cwd);
   if (!memoriaDir) return null;
   const achadas = casar(entrada.prompt, lerEntradas(memoriaDir), { contexto: contextoAberto(cwd), dataHoje: hoje() });
-  if (!achadas.length) return null;
-  registrarInjecao(memoriaDir, achadas.map(item => item.id));
   const pasta = paraBarra(path.relative(cwd, memoriaDir)) || PASTA;
+  const estados = lerEstados(memoriaDir).filter(estado => citaEstado(entrada.prompt, estado) && marcarInjetado(entrada.session_id, estado.caminho)).map(estado => blocoDoEstado(estado, pasta));
+  if (!achadas.length) return estados.length ? contexto("UserPromptSubmit", estados.join("\n\n")) : null;
+  registrarInjecao(memoriaDir, achadas.map(item => item.id));
   const linhas = achadas.map(item => `- ${pasta}/${limpar(item.caminho)}${item.geral ? ` (seção "${limpar(item.secao)}")` : ""}${item.superseded_by ? ` (substituída por ${limpar(item.superseded_by)})` : ""} - ${limpar(item.description).replace(/\s+/g, " ").slice(0, 256)}`);
-  return contexto("UserPromptSubmit", `Registros da memória ligados a este pedido (leia o que for relevante antes de agir):\n${cercar(linhas)}`);
+  return contexto("UserPromptSubmit", [...estados, `Registros da memória ligados a este pedido (leia o que for relevante antes de agir):\n${cercar(linhas)}`].join("\n\n"));
 }
 
 export function postToolUse(entrada) {

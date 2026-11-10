@@ -413,3 +413,24 @@ test("init importa a memória nativa encontrada e a de outra pasta para tipo/con
   iniciar({ importar: true, importarDe: [`${path.dirname(antiga)}=legado`] });
   assert.deepEqual(fotografar(workspace), foto);
 });
+
+test("Estado do projeto: entra inteiro no início da sessão do repo e uma vez por sessão quando o pedido cita um termo", () => {
+  iniciar();
+  const repo = path.join(workspace, "meu-app");
+  fs.mkdirSync(path.join(repo, ".git"), { recursive: true });
+  escrever(path.join(memoria(), "estado", "meu-app.md"), "---\ntermos: app, checkout\n---\n# Estado do meu-app\n| Capacidade | Onde |\n| Checkout pronto | src/checkout.js |\n");
+  escrever(path.join(memoria(), "estado", "porto.md"), "---\ntermos: ffbe, Cecil, vision\n---\n# Estado do porto\nO Studio builda em 5 s.\n");
+
+  const inicio = sessionStart({ cwd: repo, session_id: "s1" }).hookSpecificOutput.additionalContext;
+  assert.match(inicio, /Estado do projeto meu-app \(\.\.\/memoria\/estado\/meu-app\.md\)/);
+  assert.match(inicio, /Checkout pronto \| src\/checkout\.js/);
+  assert.doesNotMatch(inicio, /Studio builda/);
+  assert.equal(lerEntradas(memoria()).some(entrada => entrada.caminho.startsWith("estado")), false);
+
+  const pedido = prompt => userPromptSubmit({ cwd: repo, session_id: "s1", prompt })?.hookSpecificOutput.additionalContext ?? "";
+  assert.doesNotMatch(pedido("ajusta o checkout"), /Estado do projeto meu-app/);
+  assert.match(pedido("o cecil precisa do LB"), /Estado do projeto porto[\s\S]*O Studio builda em 5 s/);
+  assert.doesNotMatch(pedido("e a vision do cecil?"), /Estado do projeto porto/);
+  assert.doesNotMatch(pedido("visionário"), /Estado do projeto porto/);
+  assert.match(userPromptSubmit({ cwd: repo, session_id: "s2", prompt: "FFBE" }).hookSpecificOutput.additionalContext, /Estado do projeto porto/);
+});

@@ -26,6 +26,15 @@ Tipos (pastas): `aprendizados`, `decisoes`, `feedback`, `documentacao`, `pendenc
 
 O que vale em qualquer projeto não ganha pasta: vira uma seção no `README.md` do próprio tipo, no formato `## <título> (AAAA-MM-DD)` seguido do corpo.
 
+## Estado do projeto
+
+`memoria/estado/<nome>.md` é o mapa do que existe e funciona hoje num projeto, para ninguém refazer o que já está pronto. Não é registro: não entra no índice e não acumula histórico. Até 150 linhas, sobrescrito a cada mudança, com frontmatter só `termos: a, b, c`. Seções: `## Objetivo atual`, `## O que já existe e funciona` (tabela `Capacidade | Onde está | Provado como | Limite`), `## Antes de agir, sempre`, `## Por tipo de tarefa` e `## Em aberto`.
+
+- Entra inteiro no início da sessão quando `<nome>` é o repositório aberto, e uma vez por sessão quando o pedido cita um dos `termos`.
+- Todo plano sobre o projeto começa com "Já existe:" (o que vai reaproveitar) e "Vou fazer só:".
+- Quando a pessoa disser que algo já existia ou já estava feito, corrija a linha do estado na hora; não crie um feedback novo para isso.
+- Ao fechar uma etapa, reescreva as linhas que mudaram; o que deixou de valer sai.
+
 ## Quando salvar
 
 | Situação | Tipo (pasta) | `metadata.type` |
