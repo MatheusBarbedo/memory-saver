@@ -57,7 +57,8 @@ const comMarcadores = texto => new Set(termos(texto).filter(termo => !MARCADORES
 
 function linksQuebrados(entradas) {
   const existentes = new Set(entradas.flatMap(item => [item.name, path.posix.basename(item.caminho, ".md")]));
-  return entradas.flatMap(item => [...item.corpo.matchAll(/\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]/g)]
+  const semCodigo = texto => texto.replace(/```[\s\S]*?```/g, "").replace(/`[^`\n]*`/g, "");
+  return entradas.flatMap(item => [...semCodigo(item.corpo).matchAll(/\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]/g)]
     .map(([, alvo]) => alvo.trim())
     .filter(alvo => !existentes.has(alvo))
     .map(alvo => `${item.id}: [[${alvo}]]`));

@@ -211,8 +211,7 @@ test("SessionStart: orçamento, piso e teto, fixados primeiro, omitidos por cami
   assert.ok(piso.length <= 1500 && piso.length > 1000, String(piso.length));
   process.env.MEMORY_SAVER_ORCAMENTO = "999999";
   const teto = texto();
-  assert.ok(teto.length <= 20000 && teto.length > 4000, String(teto.length));
-  assert.doesNotMatch(teto, /Omitidos por falta de espaço/);
+  assert.ok(teto.length <= 9500 && teto.length > 4000, String(teto.length));
   delete process.env.MEMORY_SAVER_ORCAMENTO;
 });
 
@@ -260,7 +259,7 @@ test("PostToolUse regera o índice, avisa sem bloquear e o canário nunca vaza p
 
 test("lint e status são somente leitura e acham duplicata, contradição, link quebrado e YAML inválido", () => {
   iniciar();
-  registro(workspace, "feedback", "app", "usar-docker", { description: "Sempre use docker para rodar os testes de integração do banco", type: "feedback" }, "Veja [[nao-existe]] e [[usar-docker]].\n");
+  registro(workspace, "feedback", "app", "usar-docker", { description: "Sempre use docker para rodar os testes de integração do banco", type: "feedback" }, "Veja [[nao-existe]] e [[usar-docker]]. Sintaxe: `[[nome]]`.\n```\n[[exemplo]]\n```\n");
   registro(workspace, "feedback", "app", "evitar-docker", { description: "Nunca use docker para rodar os testes de integração do banco", type: "feedback" });
   registro(workspace, "aprendizados", "app", "cache-a", { description: "Cache de build do pipeline invalida a cada merge", type: "project" }, "O cache de build do pipeline invalida a cada merge na main.\n");
   registro(workspace, "aprendizados", "app", "cache-b", { description: "Cache de build do pipeline invalida a cada merge", type: "project" }, "O cache de build do pipeline invalida a cada merge na main.\n");
@@ -433,4 +432,33 @@ test("Estado do projeto: entra inteiro no início da sessão do repo e uma vez p
   assert.doesNotMatch(pedido("e a vision do cecil?"), /Estado do projeto porto/);
   assert.doesNotMatch(pedido("visionário"), /Estado do projeto porto/);
   assert.match(userPromptSubmit({ cwd: repo, session_id: "s2", prompt: "FFBE" }).hookSpecificOutput.additionalContext, /Estado do projeto porto/);
+});
+
+test("Estado do projeto: volta depois do compact e quando muda, avisa caminho morto e cabe no teto do hook", () => {
+  iniciar();
+  const repo = path.join(workspace, "meu-app");
+  fs.mkdirSync(path.join(repo, ".git"), { recursive: true });
+  const arquivo = path.join(memoria(), "estado", "meu-app.md");
+  const morto = path.join(workspace, "sumiu", "build.ps1");
+  const linhas = Array.from({ length: 200 }, (_, i) => `| Capacidade ${i} | \`${i ? workspace : morto}\` | prova ${i} | limite ${i} |`);
+  escrever(arquivo, `---\ntermos: app\n---\n# Estado\n${linhas.join("\n")}\n`);
+  for (let i = 0; i < 300; i++) escrever(path.join(memoria(), "aprendizados", "meu-app", `registro-${i}.md`), `---\nname: registro-${i}\ndescription: Registro ${i} com texto suficiente para encher o resumo da sessão\nmetadata:\n  type: project\n  modified: 2026-11-01\n---\nFato.\n`);
+  const inicio = () => sessionStart({ cwd: repo, session_id: "s1", source: "startup" })?.hookSpecificOutput.additionalContext ?? "";
+
+  const primeiro = inicio();
+  assert.ok(primeiro.length <= 9500, String(primeiro.length));
+  assert.match(primeiro, /Estado do projeto meu-app/);
+  assert.match(primeiro, /estado cortado, leia \.\.\/memoria\/estado\/meu-app\.md: \d+ linhas fora\]/);
+  assert.ok(primeiro.includes(`Atenção: caminhos citados no estado que não existem mais (confira e corrija a linha): ${morto}`));
+  assert.match(primeiro, /\| limite \d+ \|\n\[estado cortado/);
+  assert.match(primeiro, /Registro \d+ com texto/);
+
+  assert.doesNotMatch(inicio(), /Estado do projeto meu-app/);
+  assert.match(sessionStart({ cwd: repo, session_id: "s1", source: "compact" }).hookSpecificOutput.additionalContext, /Estado do projeto meu-app/);
+  const depois = new Date(Date.now() + 5000);
+  fs.utimesSync(arquivo, depois, depois);
+  assert.match(userPromptSubmit({ cwd: repo, session_id: "s1", prompt: "e o app?" }).hookSpecificOutput.additionalContext, /Estado do projeto meu-app/);
+
+  const aviso = postToolUse({ cwd: repo, tool_input: { file_path: arquivo } })?.hookSpecificOutput.additionalContext ?? "";
+  assert.match(aviso, /o estado estado\/meu-app\.md tem \d+ caracteres e só 7000 entram na sessão/);
 });

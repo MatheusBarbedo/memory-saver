@@ -28,9 +28,9 @@ O que vale em qualquer projeto não ganha pasta: vira uma seção no `README.md`
 
 ## Estado do projeto
 
-`memoria/estado/<nome>.md` é o mapa do que existe e funciona hoje num projeto, para ninguém refazer o que já está pronto. Não é registro: não entra no índice e não acumula histórico. Até 150 linhas, sobrescrito a cada mudança, com frontmatter só `termos: a, b, c`. Seções: `## Objetivo atual`, `## O que já existe e funciona` (tabela `Capacidade | Onde está | Provado como | Limite`), `## Antes de agir, sempre`, `## Por tipo de tarefa` e `## Em aberto`.
+`memoria/estado/<nome>.md` é o mapa do que existe e funciona hoje num projeto, para ninguém refazer o que já está pronto. Não é registro: não entra no índice e não acumula histórico. Até 7 mil caracteres (o hook do Claude Code só entrega 10 mil por vez, junto com o resumo), sobrescrito a cada mudança, com frontmatter só `termos: a, b, c`. Seções: `## Objetivo atual`, `## O que já existe e funciona` (tabela `Capacidade | Onde está | Limite`, caminhos absolutos entre crases), `## Antes de agir, sempre` (só as regras que mais custaram) e `## Em aberto`. Regras longas por tipo de tarefa vão em `memoria/estado/<nome>/regras.md`, citado no estado e lido antes da tarefa daquele tipo.
 
-- Entra inteiro no início da sessão quando `<nome>` é o repositório aberto, e uma vez por sessão quando o pedido cita um dos `termos`.
+- Entra inteiro no início da sessão quando `<nome>` é o repositório aberto, uma vez por sessão quando o pedido cita um dos `termos`, de novo depois de compactar ou limpar a conversa e de novo quando o arquivo muda. Caminho citado que não existe mais vem marcado em "Atenção": corrija a linha.
 - Todo plano sobre o projeto começa com "Já existe:" (o que vai reaproveitar) e "Vou fazer só:".
 - Quando a pessoa disser que algo já existia ou já estava feito, corrija a linha do estado na hora; não crie um feedback novo para isso.
 - Ao fechar uma etapa, reescreva as linhas que mudaram; o que deixou de valer sai.

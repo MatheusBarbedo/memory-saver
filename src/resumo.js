@@ -4,7 +4,7 @@ import { redigir } from "./sensivel.js";
 
 const ORCAMENTO_PADRAO = 4000;
 const ORCAMENTO_MINIMO = 1500;
-const ORCAMENTO_MAXIMO = 20000;
+const ORCAMENTO_MAXIMO = 9000;
 const RESERVA_OMITIDOS = 400;
 const LIMITE_DESCRICAO = 256;
 const LIMITE_TRECHO = 500;
