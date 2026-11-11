@@ -461,4 +461,9 @@ test("Estado do projeto: volta depois do compact e quando muda, avisa caminho mo
 
   const aviso = postToolUse({ cwd: repo, tool_input: { file_path: arquivo } })?.hookSpecificOutput.additionalContext ?? "";
   assert.match(aviso, /o estado estado\/meu-app\.md tem \d+ caracteres e só 7000 entram na sessão/);
+
+  const regras = path.join(memoria(), "estado", "meu-app", "regras.md");
+  fs.mkdirSync(path.dirname(regras), { recursive: true });
+  fs.writeFileSync(regras, "- regra longa\n".repeat(1000));
+  assert.equal(postToolUse({ cwd: repo, tool_input: { file_path: regras } }), null);
 });

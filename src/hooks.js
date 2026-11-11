@@ -48,7 +48,9 @@ export function postToolUse(entrada) {
   if (!memoriaDir) return null;
   const relativo = path.relative(normalizarCaminho(memoriaDir), normalizarCaminho(absoluto));
   if (relativo.startsWith("..") || path.isAbsolute(relativo)) return null;
-  if (relativo.split(path.sep)[0] === PASTA_ESTADO && absoluto.endsWith(".md") && fs.existsSync(absoluto)) {
+  if (relativo.split(path.sep)[0] === PASTA_ESTADO) {
+    const injetado = relativo.split(path.sep).length === 2 && absoluto.endsWith(".md") && path.basename(absoluto) !== "README.md" && fs.existsSync(absoluto);
+    if (!injetado) return null;
     const tamanho = fs.readFileSync(absoluto, "utf8").replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").trim().length;
     return tamanho > LIMITE_ESTADO ? contexto("PostToolUse", `memory-saver: o estado ${paraBarra(relativo)} tem ${tamanho} caracteres e só ${LIMITE_ESTADO} entram na sessão (teto de 10 mil do hook do Claude Code, junto com o resumo); enxugue as linhas até caber.`) : null;
   }
