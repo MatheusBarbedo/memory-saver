@@ -64,7 +64,7 @@ Testes de integração sobem um SQLite em memória por teste.
 ```
 
 - `metadata.type`: `user`, `feedback`, `project`, `reference`, `decision` ou `pending`.
-- Opcionais em `metadata`: `pinned: true` (sempre no resumo, no máximo 10), `expires: AAAA-MM-DD` (depois disso sai dos ponteiros e do resumo e é listado para limpar), `superseded_by: <name>` (substituído, nunca apagado) e `review: AAAA-MM-DD` (obrigatório em pendência).
+- Opcionais em `metadata`: `pinned: true` (priorizado no resumo, limite de 10 e sujeito ao orçamento), `expires: AAAA-MM-DD` (depois disso sai dos ponteiros e do resumo e é listado para limpar), `superseded_by: <name>` (substituído, nunca apagado) e `review: AAAA-MM-DD` (obrigatório em pendência).
 - Valor com dois pontos exige aspas; bloco de frontmatter duplicado e chave repetida são erros.
 - Links entre registros com `[[name]]`.
 
@@ -74,7 +74,7 @@ Todo hook responde JSON válido, termina com exit 0, nunca bloqueia e falha em s
 
 | Momento | O que acontece |
 |---|---|
-| Início da sessão (inclusive depois de compactar) | Resumo em camadas com orçamento de 4000 caracteres (`MEMORY_SAVER_ORCAMENTO`, piso 1500, teto 20000): fixados primeiro, depois o contexto do repositório aberto; cada registro ganha ao menos a descrição, o que sobra aprofunda com um trecho; o que não coube aparece como omitido, por caminho |
+| Início da sessão (inclusive depois de compactar) | Resumo em camadas com orçamento de 4000 caracteres (`MEMORY_SAVER_ORCAMENTO`, piso 1500, teto 9000): fixados primeiro, depois feedbacks gerais de comportamento e o contexto do repositório aberto; fixados e feedbacks gerais continuam sujeitos ao orçamento; cada registro ganha ao menos a descrição, o que sobra aprofunda com um trecho; o que não coube aparece como omitido, por caminho |
 | Cada pedido | Até 5 ponteiros `caminho - descrição`, casando nome, descrição, texto, pasta de contexto e caminho, com fator de autoridade entre 0.55 e 1.50 (decisão e feedback pesam mais, checkpoint menos). O contexto do repositório aberto, achado subindo até a raiz do git, tem prioridade. Sem casamento claro, nada |
 | Escrita em `memoria/` | O índice é refeito e o arquivo é verificado: segredo ou frontmatter inválido geram um aviso para o Claude corrigir, sem bloquear |
 

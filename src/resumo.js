@@ -37,7 +37,8 @@ function renderizar(itens, niveis, pasta) {
   return [...grupos.entries()].flatMap(([contexto, linhas]) => [`### ${limpar(contexto)}`, ...linhas]);
 }
 
-const ordemDeLeitura = (a, b) => Number(b.pinned) - Number(a.pinned) || Number(b.doContexto) - Number(a.doContexto) || autoridade(b) - autoridade(a) || String(b.modified ?? "").localeCompare(String(a.modified ?? "")) || a.id.localeCompare(b.id);
+const prioridadeGlobal = entrada => entrada.geral && ["user", "feedback"].includes(entrada.tipo);
+const ordemDeLeitura = (a, b) => Number(b.pinned) - Number(a.pinned) || Number(prioridadeGlobal(b)) - Number(prioridadeGlobal(a)) || Number(b.doContexto) - Number(a.doContexto) || autoridade(b) - autoridade(a) || String(b.modified ?? "").localeCompare(String(a.modified ?? "")) || a.id.localeCompare(b.id);
 
 export function montarResumo(entradas, { pasta, contexto = null, dataHoje, orcamento = orcamentoDoResumo() }) {
   const validas = entradas.filter(entrada => entrada.erros.length === 0);

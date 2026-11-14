@@ -6,6 +6,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { escreverFrontmatter, lerFrontmatter } from "../src/frontmatter.js";
 import { lerEntradas } from "../src/memoria.js";
+import { montarResumo } from "../src/resumo.js";
 import { atualizarIndice, gerarIndice } from "../src/indice.js";
 import { autoridade, casar } from "../src/casamento.js";
 import { postToolUse, sessionStart, userPromptSubmit } from "../src/hooks.js";
@@ -163,6 +164,18 @@ test("índice agrupa por tipo e contexto, mostra fixadas, vencidas, expirados e 
   atualizarIndice(memoria());
   assert.equal(fs.readdirSync(memoria()).some(nome => nome.endsWith(".tmp")), false);
   assert.equal(atualizarIndice(memoria()).mudou, false);
+});
+
+test("SessionStart preserva feedback geral antes de registros do projeto aberto com orçamento apertado", () => {
+  iniciar();
+  for (let i = 0; i < 30; i++) registro(workspace, "aprendizados", "meu-projeto", `fato-${String(i).padStart(2, "0")}`, {
+    description: `Project-specific fact ${i}: ${"important detail ".repeat(12)}`, type: "project", modified: "2026-11-01",
+  });
+  secaoGeral(workspace, "feedback", "Responder ao pedido", "2026-11-01", "Responda somente ao que foi perguntado; não inicie outra tarefa sem solicitação.");
+
+  const resumo = montarResumo(lerEntradas(memoria()), { pasta: "memoria", contexto: "meu-projeto", dataHoje: "2026-11-14", orcamento: 1500 });
+  assert.match(resumo, /Responder ao pedido/);
+  assert.match(resumo, /Responda somente ao que foi perguntado/);
 });
 
 test("casamento: contexto do repositório aberto tem prioridade e autoridade fica entre 0.55 e 1.5", () => {
