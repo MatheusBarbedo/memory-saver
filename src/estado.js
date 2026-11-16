@@ -5,6 +5,7 @@ import crypto from "node:crypto";
 
 export const pastaEstado = () => process.env.MEMORY_SAVER_HOME || path.join(os.homedir(), ".memory-saver");
 export const pastaClaude = () => process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), ".claude");
+export const pastaCodex = () => process.env.CODEX_HOME || path.join(os.homedir(), ".codex");
 
 export const lerTexto = arquivo => fs.existsSync(arquivo) ? fs.readFileSync(arquivo, "utf8") : null;
 

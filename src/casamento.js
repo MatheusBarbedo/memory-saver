@@ -49,6 +49,12 @@ function indexar(entrada) {
   };
 }
 
+const pathBase = valor => valor.split("/").at(-1).replace(/\.md$/i, "");
+const linksDe = texto => {
+  const semCodigo = String(texto).replace(/```[\s\S]*?```/g, "").replace(/`[^`\n]*`/g, "");
+  return [...semCodigo.matchAll(/\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]/g)].map(([, nome]) => nome.trim());
+};
+
 export function casar(prompt, entradas, { limite = LIMITE_PONTEIROS, contexto = null, dataHoje = null } = {}) {
   const consulta = [...new Set(termos(prompt))];
   if (!consulta.length) return [];
@@ -76,8 +82,40 @@ export function casar(prompt, entradas, { limite = LIMITE_PONTEIROS, contexto = 
     if (!((acertos >= 2 && fortes >= 1) || raroForte)) return;
     pontuadas.push({ entrada, pontos: soma * autoridade(entrada) * (contexto !== null && entrada.contexto === contexto ? BONUS_CONTEXTO : 1) });
   });
-  return pontuadas
-    .sort((a, b) => b.pontos - a.pontos || String(b.entrada.modified ?? "").localeCompare(String(a.entrada.modified ?? "")) || a.entrada.id.localeCompare(b.entrada.id))
-    .slice(0, limite)
-    .map(({ entrada }) => entrada);
+  pontuadas.sort((a, b) => b.pontos - a.pontos || String(b.entrada.modified ?? "").localeCompare(String(a.entrada.modified ?? "")) || a.entrada.id.localeCompare(b.entrada.id));
+  const diretos = pontuadas.map(({ entrada }) => entrada);
+  if (!diretos.length || diretos.length >= limite) return diretos.slice(0, limite);
+  const porId = new Map(candidatas.map(item => [item.id, item]));
+  const porNome = new Map();
+  for (const item of candidatas) {
+    for (const nome of new Set([item.name, pathBase(item.caminho)])) {
+      if (!porNome.has(nome)) porNome.set(nome, new Map());
+      porNome.get(nome).set(item.id, item);
+    }
+  }
+  const vizinhos = new Map(candidatas.map(item => [item.id, new Set()]));
+  for (const item of candidatas) {
+    for (const nome of linksDe(item.corpo)) {
+      const possiveis = [...(porNome.get(nome)?.values() ?? [])];
+      let alvo = possiveis.length === 1 ? possiveis[0] : null;
+      if (!alvo) {
+        const mesmoContexto = possiveis.filter(candidata => candidata.contexto === item.contexto);
+        if (mesmoContexto.length === 1) alvo = mesmoContexto[0];
+      }
+      if (!alvo || alvo.id === item.id) continue;
+      vizinhos.get(item.id).add(alvo.id);
+      vizinhos.get(alvo.id).add(item.id);
+    }
+  }
+  const idsDiretos = new Set(diretos.map(item => item.id));
+  const idsVizinhos = new Set();
+  const relacionados = [];
+  for (const item of diretos) {
+    for (const id of vizinhos.get(item.id) ?? []) {
+      if (idsDiretos.has(id) || idsVizinhos.has(id)) continue;
+      idsVizinhos.add(id);
+      relacionados.push(porId.get(id));
+    }
+  }
+  return [...diretos, ...relacionados].slice(0, limite);
 }

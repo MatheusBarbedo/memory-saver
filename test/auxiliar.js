@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { escreverFrontmatter } from "../src/frontmatter.js";
+import { normalizarCaminho } from "../src/estado.js";
 
 export const escrever = (arquivo, texto) => {
   fs.mkdirSync(path.dirname(arquivo), { recursive: true });
@@ -10,12 +11,14 @@ export const escrever = (arquivo, texto) => {
 
 export function criarAmbiente() {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "memory-saver-teste-"));
-  const ambiente = { tmp, claude: path.join(tmp, "claude"), workspace: path.join(tmp, "workspace") };
+  const ambiente = { tmp, claude: path.join(tmp, "claude"), codex: path.join(tmp, "codex"), workspace: path.join(tmp, "workspace") };
   process.env.CLAUDE_CONFIG_DIR = ambiente.claude;
+  process.env.CODEX_HOME = ambiente.codex;
   process.env.MEMORY_SAVER_HOME = path.join(tmp, "estado");
   process.env.MEMORY_SAVER_TETO = tmp;
   process.env.MEMORY_SAVER_GRAPHIFY = path.join(tmp, "sem-graphify");
   fs.mkdirSync(ambiente.workspace, { recursive: true });
+  escrever(path.join(process.env.MEMORY_SAVER_HOME, "workspaces.json"), JSON.stringify({ [normalizarCaminho(ambiente.workspace)]: { criados: [] } }));
   return ambiente;
 }
 

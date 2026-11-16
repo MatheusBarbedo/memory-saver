@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { arquivoWorkspaces, gravarJson, gravarTexto, hoje, lerJson, lerTexto, normalizarCaminho, pastaClaude } from "./estado.js";
+import { arquivoWorkspaces, gravarJson, gravarTexto, hoje, lerJson, lerTexto, normalizarCaminho, pastaClaude, pastaCodex } from "./estado.js";
 import { lerFrontmatter, escreverFrontmatter } from "./frontmatter.js";
 import { PASTA, PASTAS, README, slug } from "./memoria.js";
 import { atualizarIndice } from "./indice.js";
@@ -21,6 +21,10 @@ const EVENTOS = [
   { evento: "PostToolUse", matcher: "Write|Edit|MultiEdit", timeout: 10 },
 ];
 const NOSSO_HOOK = /memory\.js"?\s+hook\s+(SessionStart|UserPromptSubmit|PostToolUse)\b/;
+const EVENTOS_CODEX = [
+  { evento: "SessionStart", matcher: "startup|resume|clear|compact|fork" },
+  { evento: "UserPromptSubmit" },
+];
 
 const arquivoSettings = () => path.join(pastaClaude(), "settings.json");
 
@@ -43,6 +47,60 @@ function tirarNossosHooks(settings) {
 
 export const temHooks = settings => Object.values(settings.hooks ?? {}).some(grupos => grupos.some(grupo => (grupo.hooks ?? []).some(hook => NOSSO_HOOK.test(hook.command ?? ""))));
 
+const arquivoHooksCodex = () => path.join(pastaCodex(), "hooks.json");
+const comandoHook = (raizFerramenta, evento) => `node "${paraBarra(path.join(raizFerramenta, "memory.js"))}" hook ${evento}`;
+
+function tirarHooksCodex(config, raizFerramenta) {
+  if (!config.hooks) return config;
+  for (const { evento } of EVENTOS_CODEX) {
+    if (!config.hooks[evento]) continue;
+    config.hooks[evento] = config.hooks[evento]
+      .map(grupo => ({ ...grupo, hooks: (grupo.hooks ?? []).filter(hook => hook.command !== comandoHook(raizFerramenta, evento)) }))
+      .filter(grupo => grupo.hooks.length > 0);
+    if (config.hooks[evento].length === 0) delete config.hooks[evento];
+  }
+  if (Object.keys(config.hooks).length === 0) delete config.hooks;
+  return config;
+}
+
+function lerHooksCodex() {
+  const configToml = lerTexto(path.join(pastaCodex(), "config.toml"));
+  if (configToml && /^\s*\[\[?hooks(?:[.\]]|$)/m.test(configToml)) {
+    throw new Error(`Há hooks inline em ${path.join(pastaCodex(), "config.toml")}; combine-os manualmente com hooks.json para evitar duplicidade.`);
+  }
+  const arquivo = arquivoHooksCodex();
+  const texto = lerTexto(arquivo);
+  if (texto === null) return {};
+  let config;
+  try { config = JSON.parse(texto.replace(/^﻿/, "")); }
+  catch { throw new Error(`JSON inválido em ${arquivo}; preservei o arquivo sem alterações.`); }
+  if (!config || typeof config !== "object" || Array.isArray(config) || (config.hooks !== undefined && (typeof config.hooks !== "object" || Array.isArray(config.hooks)))) {
+    throw new Error(`Formato inesperado em ${arquivo}; preservei o arquivo sem alterações.`);
+  }
+  for (const { evento } of EVENTOS_CODEX) {
+    if (config.hooks?.[evento] !== undefined && !Array.isArray(config.hooks[evento])) throw new Error(`Formato inesperado para hooks.${evento} em ${arquivo}; preservei o arquivo sem alterações.`);
+    for (const grupo of config.hooks?.[evento] ?? []) {
+      if (!grupo || typeof grupo !== "object" || !Array.isArray(grupo.hooks)) throw new Error(`Formato inesperado para hooks.${evento} em ${arquivo}; preservei o arquivo sem alterações.`);
+    }
+  }
+  return config;
+}
+
+function instalarHooksCodex(raizFerramenta = RAIZ_FERRAMENTA) {
+  const config = tirarHooksCodex(lerHooksCodex(), raizFerramenta);
+  config.hooks ??= {};
+  for (const { evento, matcher } of EVENTOS_CODEX) {
+    config.hooks[evento] ??= [];
+    config.hooks[evento].push({ ...(matcher ? { matcher } : {}), hooks: [{ type: "command", command: comandoHook(raizFerramenta, evento), timeout: 10, statusMessage: "Lendo memória do workspace" }] });
+  }
+  gravarJson(arquivoHooksCodex(), config);
+  return arquivoHooksCodex();
+}
+
+export function temHooksCodex(config = lerHooksCodex(), raizFerramenta = RAIZ_FERRAMENTA) {
+  return EVENTOS_CODEX.some(({ evento }) => (config.hooks?.[evento] ?? []).some(grupo => (grupo.hooks ?? []).some(hook => hook.command === comandoHook(raizFerramenta, evento))));
+}
+
 export function instalarMaquina(raizFerramenta = RAIZ_FERRAMENTA) {
   const memoryJs = paraBarra(path.join(raizFerramenta, "memory.js"));
   const settings = tirarNossosHooks(lerJson(arquivoSettings(), {}));
@@ -56,12 +114,14 @@ export function instalarMaquina(raizFerramenta = RAIZ_FERRAMENTA) {
     const modelo = fs.readFileSync(path.join(raizFerramenta, "templates", "skills", skill, "SKILL.md"), "utf8");
     gravarTexto(path.join(pastaClaude(), "skills", skill, "SKILL.md"), modelo.replaceAll("{{MEMORY_JS}}", memoryJs));
   }
-  return { settings: arquivoSettings(), skills: SKILLS.map(skill => path.join(pastaClaude(), "skills", skill)) };
+  return { settings: arquivoSettings(), codexHooks: instalarHooksCodex(raizFerramenta), skills: SKILLS.map(skill => path.join(pastaClaude(), "skills", skill)) };
 }
 
 export function desinstalarMaquina() {
   const texto = lerTexto(arquivoSettings());
   if (texto !== null) gravarJson(arquivoSettings(), tirarNossosHooks(JSON.parse(texto.replace(/^﻿/, ""))));
+  const codexTexto = lerTexto(arquivoHooksCodex());
+  if (codexTexto !== null) gravarJson(arquivoHooksCodex(), tirarHooksCodex(lerHooksCodex(), RAIZ_FERRAMENTA));
   for (const skill of SKILLS) fs.rmSync(path.join(pastaClaude(), "skills", skill), { recursive: true, force: true });
   const registro = lerJson(arquivoWorkspaces(), {});
   const restaurados = [];
@@ -169,6 +229,12 @@ export function planejarInit(workspaceBruto, { importar = false, importarDe = []
   if (!fs.existsSync(comoUsar)) {
     acoes.push(`criar ${PASTA}/COMO-USAR.md`);
     passos.push(() => gravarTexto(comoUsar, fs.readFileSync(path.join(RAIZ_FERRAMENTA, "templates", "COMO-USAR.md"), "utf8")));
+  }
+
+  const handoff = path.join(memoriaDir, "HANDOFF.md");
+  if (!fs.existsSync(handoff)) {
+    acoes.push(`criar ${PASTA}/HANDOFF.md para troca de contexto entre Claude e Codex`);
+    passos.push(() => gravarTexto(handoff, fs.readFileSync(path.join(RAIZ_FERRAMENTA, "templates", "HANDOFF.md"), "utf8")));
   }
 
   const importacao = escolherArquivoImport(workspace);

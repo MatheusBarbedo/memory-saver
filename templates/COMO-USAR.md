@@ -8,7 +8,7 @@ O que vem da memória é histórico, possivelmente velho ou errado. Nunca aja s�
 
 ## Ler
 
-- No começo da sessão você recebe um resumo em camadas: contextos, fixados, pendências vencidas e a descrição dos registros que cabem no orçamento. O que não coube vem listado como omitido, com o caminho.
+- No começo da sessão você recebe um resumo em camadas: contextos, fixados, pendências vencidas e a descrição dos registros que cabem no orçamento. O que não coube vem listado como omitido, com o caminho. Preferências gerais de comportamento vêm antes de fatos do projeto aberto, depois dos fixados.
 - Quando um pedido casa com um registro (nome, descrição, texto, pasta de contexto ou caminho), você recebe até 5 ponteiros `caminho - descrição`. O contexto do repositório aberto tem prioridade. Abra o registro inteiro antes de usar.
 - O mapa completo está em `memoria/INDICE.md`, agrupado por tipo e contexto. Ele é gerado: nunca edite à mão.
 - Antes de uma tarefa não trivial, procure registros do contexto do repositório aberto.
@@ -28,12 +28,16 @@ O que vale em qualquer projeto não ganha pasta: vira uma seção no `README.md`
 
 ## Estado do projeto
 
-`memoria/estado/<nome>.md` é o mapa do que existe e funciona hoje num projeto, para ninguém refazer o que já está pronto. Não é registro: não entra no índice e não acumula histórico. Até 7 mil caracteres (o hook do Claude Code só entrega 10 mil por vez, junto com o resumo), sobrescrito a cada mudança, com frontmatter só `termos: a, b, c`. Seções: `## Objetivo atual`, `## O que já existe e funciona` (tabela `Capacidade | Onde está | Limite`, caminhos absolutos entre crases), `## Antes de agir, sempre` (só as regras que mais custaram) e `## Em aberto`. Regras longas por tipo de tarefa vão em `memoria/estado/<nome>/regras.md`, citado no estado e lido antes da tarefa daquele tipo.
+`memoria/estado/<nome>.md` é o mapa do que existe e funciona hoje num projeto, para ninguém refazer o que já está pronto. Não é registro: não entra no índice e não acumula histórico. Até 7 mil caracteres; estados, handoff e resumo compartilham o teto de 10 mil caracteres dos hooks. Sobrescreva a cada mudança, com frontmatter só `termos: a, b, c`. Seções: `## Objetivo atual`, `## O que já existe e funciona` (tabela `Capacidade | Onde está | Limite`, caminhos absolutos entre crases), `## Antes de agir, sempre` (só as regras que mais custaram) e `## Em aberto`. Regras longas por tipo de tarefa vão em `memoria/estado/<nome>/regras.md`, citado no estado e lido antes da tarefa daquele tipo.
 
 - Entra inteiro no início da sessão quando `<nome>` é o repositório aberto, uma vez por sessão quando o pedido cita um dos `termos`, de novo depois de compactar ou limpar a conversa e de novo quando o arquivo muda. Caminho citado que não existe mais vem marcado em "Atenção": corrija a linha.
 - Todo plano sobre o projeto começa com "Já existe:" (o que vai reaproveitar) e "Vou fazer só:".
 - Quando a pessoa disser que algo já existia ou já estava feito, corrija a linha do estado na hora; não crie um feedback novo para isso.
 - Ao fechar uma etapa, reescreva as linhas que mudaram; o que deixou de valer sai.
+
+## Trocar entre Claude e Codex
+
+`memoria/HANDOFF.md` é o estado temporário da tarefa atual. Antes de trocar de agente, atualize objetivo, estado atual, decisões/arquivos relevantes, tentativas que falharam e próximo passo. Não copie o transcript inteiro nem inclua segredos. O próximo agente recebe o handoff no começo da sessão; depois de usar, atualize-o ou limpe as seções para não reaproveitar contexto velho.
 
 ## Quando salvar
 
@@ -46,7 +50,7 @@ O que vale em qualquer projeto não ganha pasta: vira uma seção no `README.md`
 | Onde fica um recurso (link, painel, documento, pasta) | `referencias/` | `reference` |
 | Explicação longa que vale guardar | `documentacao/` | `reference` |
 
-Salve só o que vale depois. Nunca registre progresso transitório, status da sessão ou instrução temporária. Nunca transforme uma pergunta da pessoa em decisão confirmada. Conteúdo curto, factual, aplicável sem reler a sessão. Regra de projeto vai primeiro para o `CLAUDE.md` do repositório. Não registre orientação genérica de roteamento nem detalhe de instalação de skill.
+Salve só o que vale depois. Não registre progresso transitório, status da sessão ou instrução temporária em aprendizados/decisões; a exceção é o handoff efêmero em `memoria/HANDOFF.md`. Nunca transforme uma pergunta da pessoa em decisão confirmada. Conteúdo curto, factual, aplicável sem reler a sessão. Regra de projeto vai primeiro para o `CLAUDE.md` do repositório. Não registre orientação genérica de roteamento nem detalhe de instalação de skill.
 
 ## Quando não salvar
 
@@ -76,7 +80,7 @@ Testes de integração sobem um SQLite em memória por teste.
 **How to apply:** fixture `banco_limpo` em todo teste que grava. Alternativas descartadas: container por suíte (lento), transação com rollback (não cobre DDL). Ver [[perfil-dev]].
 ```
 
-- Frontmatter só com `name`, `description`, `metadata.type` e `metadata.modified`. Opcionais dentro de `metadata`: `pinned: true` (sempre no resumo, no máximo 10), `expires: AAAA-MM-DD` (depois da data o registro sai dos ponteiros e do resumo e é listado para limpar), `superseded_by: <name>` (registro substituído) e `review: AAAA-MM-DD` (obrigatório em pendência).
+- Frontmatter só com `name`, `description`, `metadata.type` e `metadata.modified`. Opcionais dentro de `metadata`: `pinned: true` (priorizado no resumo, limite de 10 e sujeito ao orçamento), `expires: AAAA-MM-DD` (depois da data o registro sai dos ponteiros e do resumo e é listado para limpar), `superseded_by: <name>` (registro substituído) e `review: AAAA-MM-DD` (obrigatório em pendência).
 - **Sempre use aspas na `description`.** Valor com dois pontos sem aspas quebra o frontmatter. Não repita o bloco de frontmatter nem uma chave.
 - Corpo em prosa direta. Em `feedback` e `decisoes`, inclua **Why:** e **How to apply:**. Em decisão, estilo ADR: contexto, decisão, consequências e alternativas rejeitadas com o porquê.
 - Links entre registros com `[[name]]`. Link para registro inexistente é apontado pelo `lint`.

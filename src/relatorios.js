@@ -1,10 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
-import { arquivoStats, hoje, lerJson, pastaClaude } from "./estado.js";
+import { arquivoStats, hoje, lerJson, pastaClaude, pastaCodex } from "./estado.js";
 import { ativa, expirada, lerEntradas, pendenciaVencida, PASTAS, revisaoVencida } from "./memoria.js";
 import { detectarSensivel } from "./sensivel.js";
 import { normalizar, termos } from "./casamento.js";
-import { temHooks } from "./instalador.js";
+import { temHooks, temHooksCodex } from "./instalador.js";
 import { graphifyLigado } from "./mapa.js";
 
 const LIMIAR_DUPLICATA = 0.5;
@@ -15,8 +15,11 @@ const MARCADORES = new Set([...NEGACAO, ...AFIRMACAO]);
 
 export function status(memoriaDir) {
   const settings = lerJson(path.join(pastaClaude(), "settings.json"), {});
-  const instalado = temHooks(settings) && fs.existsSync(path.join(pastaClaude(), "skills", "memory-saver", "SKILL.md"));
-  if (!memoriaDir) return { instalado, memoria: null };
+  const instaladoClaude = temHooks(settings) && fs.existsSync(path.join(pastaClaude(), "skills", "memory-saver", "SKILL.md"));
+  let instaladoCodex = false;
+  try { instaladoCodex = temHooksCodex(lerJson(path.join(pastaCodex(), "hooks.json"), {})); } catch {}
+  const instalado = instaladoClaude || instaladoCodex;
+  if (!memoriaDir) return { instalado, instaladoClaude, instaladoCodex, memoria: null };
   const entradas = lerEntradas(memoriaDir);
   const dataHoje = hoje();
   const validas = entradas.filter(item => item.erros.length === 0);
@@ -25,6 +28,8 @@ export function status(memoriaDir) {
   for (const item of validas) porContexto[item.contexto ?? "geral"] = (porContexto[item.contexto ?? "geral"] ?? 0) + 1;
   return {
     instalado,
+    instaladoClaude,
+    instaladoCodex,
     memoria: memoriaDir,
     graphify: graphifyLigado(memoriaDir),
     total: entradas.length,

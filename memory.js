@@ -27,7 +27,7 @@ const AJUDA = `Uso: node memory.js <comando>
        --saida <arquivo>          onde gravar o plano (padrão: plano-migracao.md na pasta atual)
        --aplicar                  executa a migração (peça antes de usar)
   stats [workspace]               o que foi injetado e o que nunca casou
-  hook <evento>                   entrada dos hooks do Claude Code`;
+  hook <evento>                   entrada dos hooks do Claude Code e do Codex`;
 
 function lerArgs(argv) {
   const opcoes = { sim: false, importar: false, importarDe: [], aplicar: false, saida: null, graphify: false };
@@ -74,10 +74,11 @@ async function main(argv) {
   if (comando === "hook") return rodarHook(alvo);
 
   if (comando === "install") {
-    const { settings, skills } = instalarMaquina();
-    console.log(`Hooks registrados em ${settings}.`);
+    const { settings, codexHooks, skills } = instalarMaquina();
+    console.log(`Hooks do Claude Code registrados em ${settings}.`);
+    console.log(`Hooks do Codex registrados em ${codexHooks}; revise e confie neles na próxima sessão do Codex com /hooks.`);
     for (const skill of skills) console.log(`Skill instalada: ${skill}`);
-    console.log("Abra uma sessão nova do Claude Code para os hooks e as skills valerem.");
+    console.log("Abra sessões novas do Claude Code e do Codex para ativar as integrações.");
     return;
   }
 
@@ -99,13 +100,14 @@ async function main(argv) {
     }
     if (!(await confirmar(opcoes))) return;
     plano.aplicar();
-    console.log("Pronto. A memória passa a aparecer na próxima sessão do Claude Code neste workspace.");
+    console.log("Pronto. A memória aparece na próxima sessão do Claude Code e, se a integração Codex estiver instalada e confiada, também no Codex.");
     return;
   }
 
   if (comando === "status") {
     const info = status(acharMemoria(alvo ?? process.cwd()));
-    console.log(`memory-saver ${info.instalado ? "instalado nesta máquina" : "NÃO instalado nesta máquina (rode: node memory.js install)"}`);
+    console.log(`Integração Claude Code: ${info.instaladoClaude ? "instalada" : "não instalada"}.`);
+    console.log(`Integração Codex: ${info.instaladoCodex ? "instalada" : "não instalada"}.`);
     if (!info.memoria) return console.log("Nenhuma memoria/ neste workspace.");
     console.log(`Memória: ${info.memoria}`);
     console.log(`Mapa do graphify: ${info.graphify ? "ligado (refeito a cada escrita)" : "desligado (para ligar: node memory.js init --graphify)"}`);

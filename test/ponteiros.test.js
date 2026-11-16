@@ -68,6 +68,15 @@ test("eval de ponteiros: hard negatives (assunto parecido sem resposta) não ger
   for (const pergunta of HARD_NEGATIVES) assert.deepEqual(casar(pergunta, entradas).map(item => item.id), [], pergunta);
 });
 
+test("busca expande resultados diretos para registros ligados por [[...]] depois deles", () => {
+  const w = ambiente.workspace;
+  registro(w, "decisoes", "app-a", "protocolo-token", { description: "Protocolo de rotação de token para as contas corporativas", type: "decision" }, "Consulte também [[limite-interno]].\n");
+  registro(w, "referencias", "app-b", "limite-interno", { description: "Limite de chamadas internas da API por minuto", type: "reference" });
+  const entradas = lerEntradas(path.join(w, "memoria"));
+  const resultado = casar("como funciona a rotação de token para contas", entradas);
+  assert.deepEqual(resultado.slice(0, 2).map(item => item.name), ["protocolo-token", "limite-interno"]);
+});
+
 test("eval de ponteiros: o contexto do repositório aberto vem primeiro e o custo injetado fica pequeno", () => {
   const entradas = lerEntradas(path.join(ambiente.workspace, "memoria"));
   const empate = "estudio jogo cartas prototipar trailer controle";

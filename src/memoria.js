@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { lerFrontmatter } from "./frontmatter.js";
+import { arquivoWorkspaces, lerJson, normalizarCaminho } from "./estado.js";
 
 export const PASTA = "memoria";
 export const PASTAS = ["aprendizados", "decisoes", "feedback", "documentacao", "pendencias", "referencias"];
@@ -18,6 +19,12 @@ const dentroDe = (pasta, base) => {
   const rel = path.relative(base, pasta);
   return rel !== "" && !rel.startsWith("..") && !path.isAbsolute(rel);
 };
+
+export function acharMemoriaConfiavel(inicio, registrados = lerJson(arquivoWorkspaces(), {})) {
+  const memoriaDir = acharMemoria(inicio);
+  if (!memoriaDir || !registrados || typeof registrados !== "object") return null;
+  return Object.hasOwn(registrados, normalizarCaminho(path.dirname(memoriaDir))) ? memoriaDir : null;
+}
 
 export function acharMemoria(inicio) {
   let atual = path.resolve(inicio);

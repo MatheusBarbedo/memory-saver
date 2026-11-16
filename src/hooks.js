@@ -1,12 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import { hoje, normalizarCaminho, registrarInjecao } from "./estado.js";
-import { acharMemoria, contextoAberto, lerEntradas, PASTA, PASTAS } from "./memoria.js";
+import { acharMemoriaConfiavel, contextoAberto, lerEntradas, PASTA, PASTAS } from "./memoria.js";
 import { atualizarIndice } from "./indice.js";
 import { casar } from "./casamento.js";
 import { cercar, limpar, montarResumo, orcamentoDoResumo } from "./resumo.js";
 import { detectarSensivel } from "./sensivel.js";
 import { graphifyLigado, refazerMapaEmSegundoPlano } from "./mapa.js";
+import { contextoDoHandoff } from "./handoff.js";
 import { blocoDoEstado, citaEstado, cortarPorLinha, esquecerSessao, LIMITE_ESTADO, lerEstados, marcarInjetado, PASTA_ESTADO, TETO_HOOK } from "./estados.js";
 
 const paraBarra = caminho => caminho.split(path.sep).join("/");
@@ -14,22 +15,24 @@ const contexto = (evento, texto) => ({ hookSpecificOutput: { hookEventName: even
 
 export function sessionStart(entrada) {
   const cwd = entrada.cwd ?? process.cwd();
-  const memoriaDir = acharMemoria(cwd);
+  const memoriaDir = acharMemoriaConfiavel(cwd);
   if (!memoriaDir) return null;
   const { entradas } = atualizarIndice(memoriaDir);
   const pasta = paraBarra(path.relative(cwd, memoriaDir)) || PASTA;
   const aberto = contextoAberto(cwd);
   if (entrada.source === "compact" || entrada.source === "clear") esquecerSessao(entrada.session_id);
+  const handoff = contextoDoHandoff(memoriaDir);
   const estados = lerEstados(memoriaDir).filter(estado => estado.contexto === aberto && marcarInjetado(entrada.session_id, estado.versao)).map(estado => blocoDoEstado(estado, pasta));
-  const sobra = TETO_HOOK - estados.join("\n\n").length - 2;
+  const blocosExtras = [handoff, ...estados].filter(Boolean);
+  const sobra = TETO_HOOK - blocosExtras.join("\n\n").length - 2;
   const resumo = sobra > 0 ? montarResumo(entradas, { pasta, contexto: aberto, dataHoje: hoje(), orcamento: Math.min(orcamentoDoResumo(), sobra) }) : "";
-  return contexto("SessionStart", cortarPorLinha([resumo, ...estados].filter(Boolean).join("\n\n"), TETO_HOOK, "contexto cortado no teto do hook"));
+  return contexto("SessionStart", cortarPorLinha([resumo, ...blocosExtras].filter(Boolean).join("\n\n"), TETO_HOOK, "contexto cortado no teto do hook"));
 }
 
 export function userPromptSubmit(entrada) {
   if (!entrada.prompt) return null;
   const cwd = entrada.cwd ?? process.cwd();
-  const memoriaDir = acharMemoria(cwd);
+  const memoriaDir = acharMemoriaConfiavel(cwd);
   if (!memoriaDir) return null;
   const achadas = casar(entrada.prompt, lerEntradas(memoriaDir), { contexto: contextoAberto(cwd), dataHoje: hoje() });
   const pasta = paraBarra(path.relative(cwd, memoriaDir)) || PASTA;
@@ -44,7 +47,7 @@ export function postToolUse(entrada) {
   const arquivo = entrada.tool_input?.file_path ?? entrada.tool_response?.filePath;
   if (!arquivo) return null;
   const absoluto = path.resolve(entrada.cwd ?? process.cwd(), arquivo);
-  const memoriaDir = acharMemoria(path.dirname(absoluto));
+  const memoriaDir = acharMemoriaConfiavel(path.dirname(absoluto));
   if (!memoriaDir) return null;
   const relativo = path.relative(normalizarCaminho(memoriaDir), normalizarCaminho(absoluto));
   if (relativo.startsWith("..") || path.isAbsolute(relativo)) return null;

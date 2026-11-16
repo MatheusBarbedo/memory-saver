@@ -1,8 +1,8 @@
 # memory-saver
 
-Memória local e organizada para o Claude Code, em markdown, dentro do próprio workspace.
+Memória local e organizada para Claude Code e Codex, em markdown, dentro do próprio workspace.
 
-O Claude registra aprendizados, decisões, feedbacks, documentação, pendências e referências em arquivos `.md`, organizados por tipo e, dentro dele, por contexto (projeto ou área). Um índice central é gerado sozinho. E, em vez de esperar o Claude lembrar de consultar, hooks entregam a memória na hora: um resumo em camadas no começo da sessão e ponteiros para os registros certos quando um assunto aparece no pedido.
+Os agentes registram aprendizados, decisões, feedbacks, documentação, pendências e referências em arquivos `.md`, organizados por tipo e, dentro dele, por contexto (projeto ou área). Um índice central é gerado sozinho. Hooks entregam a memória na hora: um resumo em camadas no começo da sessão e ponteiros para os registros certos quando um assunto aparece no pedido.
 
 - Node.js puro, zero dependências, sem `npm install`.
 - Windows, Linux e macOS.
@@ -16,7 +16,7 @@ Uma vez por máquina, depois de clonar ou copiar este repositório:
 node memory.js install
 ```
 
-Isso registra os hooks no `~/.claude/settings.json` (sem mexer nos hooks de outras ferramentas) e instala as skills `memory-saver` e `lembrar`. Abra uma sessão nova do Claude Code.
+Isso registra os hooks do Claude Code em `~/.claude/settings.json`, os hooks do Codex em `~/.codex/hooks.json` e instala as skills `memory-saver` e `lembrar`. Os hooks existentes são preservados. Na primeira sessão do Codex, revise e confie nos hooks do memory-saver com `/hooks`.
 
 Depois, em cada workspace onde quiser memória, peça ao Claude:
 
@@ -33,7 +33,8 @@ Tipo em cima, contexto dentro:
 ├─ CLAUDE.md                 ganha uma linha: @memoria/COMO-USAR.md
 └─ memoria/
    ├─ INDICE.md              gerado, agrupado por tipo e contexto; nunca editado à mão
-   ├─ COMO-USAR.md           protocolo de leitura e escrita para o Claude
+   ├─ COMO-USAR.md           protocolo de leitura e escrita para os agentes
+   ├─ HANDOFF.md             estado temporário para troca entre Claude e Codex
    ├─ aprendizados/
    │  ├─ README.md           o que vale em qualquer projeto, uma seção datada por item
    │  └─ meu-app/
@@ -68,15 +69,15 @@ Testes de integração sobem um SQLite em memória por teste.
 - Valor com dois pontos exige aspas; bloco de frontmatter duplicado e chave repetida são erros.
 - Links entre registros com `[[name]]`.
 
-## Como a memória chega ao Claude
+## Como a memória chega aos agentes
 
 Todo hook responde JSON válido, termina com exit 0, nunca bloqueia e falha em silêncio.
 
 | Momento | O que acontece |
 |---|---|
-| Início da sessão (inclusive depois de compactar) | Resumo em camadas com orçamento de 4000 caracteres (`MEMORY_SAVER_ORCAMENTO`, piso 1500, teto 9000): fixados primeiro, depois feedbacks gerais de comportamento e o contexto do repositório aberto; fixados e feedbacks gerais continuam sujeitos ao orçamento; cada registro ganha ao menos a descrição, o que sobra aprofunda com um trecho; o que não coube aparece como omitido, por caminho |
-| Cada pedido | Até 5 ponteiros `caminho - descrição`, casando nome, descrição, texto, pasta de contexto e caminho, com fator de autoridade entre 0.55 e 1.50 (decisão e feedback pesam mais, checkpoint menos). O contexto do repositório aberto, achado subindo até a raiz do git, tem prioridade. Sem casamento claro, nada |
-| Escrita em `memoria/` | O índice é refeito e o arquivo é verificado: segredo ou frontmatter inválido geram um aviso para o Claude corrigir, sem bloquear |
+| Início da sessão (inclusive depois de compactar) | Claude Code e Codex recebem um resumo em camadas com orçamento de 4000 caracteres (`MEMORY_SAVER_ORCAMENTO`, piso 1500, teto 9000), o handoff preenchido e o estado do projeto; fixados primeiro, depois feedbacks gerais de comportamento e o contexto aberto. Itens continuam sujeitos ao orçamento |
+| Cada pedido | Claude Code e Codex recebem até 5 ponteiros diretos, seguidos por registros relacionados via `[[links]]`, sem ultrapassar o limite. A busca casa nome, descrição, texto e contexto; contexto aberto tem prioridade |
+| Escrita em `memoria/` | O hook do Claude Code refaz o índice e avisa sobre segredo ou frontmatter inválido. Codex atualiza a recuperação no próximo pedido/sessão; o handoff é escrito explicitamente, sem captura automática de prompts ou transcript |
 
 Tudo o que é injetado vai dentro de uma cerca `memoria-historico-nao-confiavel`, com o aviso de que memória é dado, não instrução, e passa por redação de segredos antes de sair.
 
@@ -88,7 +89,7 @@ Fora de um workspace com `memoria/`, os hooks respondem `{}`. A memória automá
 
 | Comando | O que faz |
 |---|---|
-| `install` / `uninstall` | Registra ou remove hooks e skills. `uninstall` nunca apaga nenhuma pasta `memoria/` |
+| `install` / `uninstall` | Registra ou remove hooks do Claude Code e Codex e as skills. Revise os hooks do Codex com `/hooks`. `uninstall` nunca apaga nenhuma pasta `memoria/` |
 | `init [workspace]` | Cria `memoria/` com os tipos e seus `README.md`, liga o protocolo no `CLAUDE.md` e desliga a memória nativa no workspace. Idempotente |
 | `init ... --importar` / `--importar-de <pasta>[=<escopo>]` | Importa a memória nativa do Claude Code (ou de outra pasta) para tipo/contexto. O original fica onde está |
 | `init ... --graphify` | Opcional: liga o mapa do graphify (`graphifyy` no PyPI) na memória. Instala o CLI se faltar (`uv tool install graphifyy`), gera o mapa e, daí em diante, o hook de escrita refaz o mapa em segundo plano. Sem LLM (`GRAPHIFY_BACKEND=none`) |

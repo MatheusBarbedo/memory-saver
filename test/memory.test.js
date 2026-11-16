@@ -59,21 +59,31 @@ afterEach(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
 test("install é idempotente e uninstall preserva hooks de outras ferramentas e nunca apaga memoria/", () => {
   const outro = { matcher: "Bash", hooks: [{ type: "command", command: "node outra-ferramenta.js" }] };
+  const outroCodex = { matcher: "Bash", hooks: [{ type: "command", command: "node outra-ferramenta.js" }] };
   escrever(path.join(claude, "settings.json"), JSON.stringify({ theme: "dark", hooks: { PreToolUse: [outro], SessionStart: [{ hooks: [{ type: "command", command: "echo oi" }] }] } }));
+  escrever(path.join(ambiente.codex, "hooks.json"), JSON.stringify({ hooks: { PostToolUse: [outroCodex], SessionStart: [{ hooks: [{ type: "command", command: "echo codex" }] }] } }));
   instalarMaquina();
   const primeira = fs.readFileSync(path.join(claude, "settings.json"), "utf8");
+  const primeiraCodex = fs.readFileSync(path.join(ambiente.codex, "hooks.json"), "utf8");
   instalarMaquina();
   assert.equal(fs.readFileSync(path.join(claude, "settings.json"), "utf8"), primeira);
+  assert.equal(fs.readFileSync(path.join(ambiente.codex, "hooks.json"), "utf8"), primeiraCodex);
   const settings = JSON.parse(primeira);
+  const codex = JSON.parse(primeiraCodex);
   assert.equal(settings.hooks.SessionStart.length, 2);
   assert.equal(settings.hooks.UserPromptSubmit.length, 1);
   assert.match(settings.hooks.PostToolUse[0].matcher, /Write/);
+  assert.equal(codex.hooks.SessionStart.length, 2);
+  assert.equal(codex.hooks.UserPromptSubmit.length, 1);
+  assert.deepEqual(codex.hooks.PostToolUse, [outroCodex]);
   assert.match(fs.readFileSync(path.join(claude, "skills", "memory-saver", "SKILL.md"), "utf8"), /memory\.js/);
 
   iniciar();
   desinstalarMaquina();
   const depois = JSON.parse(fs.readFileSync(path.join(claude, "settings.json"), "utf8"));
+  const depoisCodex = JSON.parse(fs.readFileSync(path.join(ambiente.codex, "hooks.json"), "utf8"));
   assert.deepEqual(depois, { theme: "dark", hooks: { PreToolUse: [outro], SessionStart: [{ hooks: [{ type: "command", command: "echo oi" }] }] } });
+  assert.deepEqual(depoisCodex, { hooks: { PostToolUse: [outroCodex], SessionStart: [{ hooks: [{ type: "command", command: "echo codex" }] }] } });
   assert.equal(fs.existsSync(path.join(claude, "skills", "memory-saver")), false);
   assert.ok(fs.existsSync(path.join(workspace, "memoria", "COMO-USAR.md")));
   assert.equal(fs.existsSync(path.join(workspace, ".claude", "settings.local.json")), false);
@@ -178,6 +188,19 @@ test("SessionStart preserva feedback geral antes de registros do projeto aberto 
   assert.match(resumo, /Responda somente ao que foi perguntado/);
 });
 
+test("SessionStart injeta handoff entre agentes como dado não confiável e redige segredos", () => {
+  iniciar();
+  const handoff = path.join(memoria(), "HANDOFF.md");
+  const modelo = fs.readFileSync(handoff, "utf8");
+  assert.equal(sessionStart({ cwd: workspace })?.hookSpecificOutput.additionalContext.includes("Handoff de outro agente"), false);
+  escrever(handoff, `${modelo}\n## Objetivo\n\nFinalizar a migração da API.\n\n## Próximo passo\n\nRodar os testes.\n\nToken: sk-canary-LEAK_ME_0123456789abcdef\n`);
+  const texto = sessionStart({ cwd: workspace }).hookSpecificOutput.additionalContext;
+  assert.match(texto, /Handoff de outro agente/);
+  assert.match(texto, /Finalizar a migração da API/);
+  assert.match(texto, /<memoria-historico-nao-confiavel>/);
+  assert.doesNotMatch(texto, /sk-canary-LEAK_ME/);
+});
+
 test("casamento: contexto do repositório aberto tem prioridade e autoridade fica entre 0.55 e 1.5", () => {
   iniciar();
   registro(workspace, "decisoes", "alfa", "cache-alfa", { description: "cache de build", type: "decision" });
@@ -203,6 +226,17 @@ test("hooks respondem JSON válido, exit 0 e nunca bloqueiam, mesmo sem memória
   assert.equal(rodarHook("EventoDesconhecido", {}).stdout, "{}");
   assert.equal(sessionStart({ cwd: workspace }), null);
   assert.equal(userPromptSubmit({ cwd: workspace, prompt: "qualquer coisa" }), null);
+});
+
+test("hooks de SessionStart e UserPromptSubmit também entregam memória no protocolo do Codex", () => {
+  iniciar();
+  registro(workspace, "decisoes", "app", "rotacao-token", { description: "Rotação do token da integração interna", type: "decision" });
+  const inicio = rodarHook("SessionStart", { cwd: workspace, source: "startup", session_id: "codex-session" });
+  assert.equal(inicio.status, 0);
+  assert.match(JSON.parse(inicio.stdout).hookSpecificOutput.additionalContext, /rotacao-token\.md/);
+  const prompt = rodarHook("UserPromptSubmit", { cwd: workspace, prompt: "rotacao do token da integracao" });
+  assert.equal(prompt.status, 0);
+  assert.match(JSON.parse(prompt.stdout).hookSpecificOutput.additionalContext, /rotacao-token\.md/);
 });
 
 test("SessionStart: orçamento, piso e teto, fixados primeiro, omitidos por caminho e cerca de histórico não confiável", () => {
