@@ -8,6 +8,7 @@ import { cercar, limpar, montarResumo, orcamentoDoResumo } from "./resumo.js";
 import { detectarSensivel } from "./sensivel.js";
 import { graphifyLigado, refazerMapaEmSegundoPlano } from "./mapa.js";
 import { contextoDoHandoff } from "./handoff.js";
+import { avisoDeContexto } from "./contexto.js";
 import { blocoDoEstado, citaEstado, cortarPorLinha, esquecerSessao, LIMITE_ESTADO, lerEstados, marcarInjetado, PASTA_ESTADO, TETO_HOOK } from "./estados.js";
 
 const paraBarra = caminho => caminho.split(path.sep).join("/");
@@ -34,13 +35,19 @@ export function userPromptSubmit(entrada) {
   const cwd = entrada.cwd ?? process.cwd();
   const memoriaDir = acharMemoriaConfiavel(cwd);
   if (!memoriaDir) return null;
+  const aviso = avisoDeContexto(entrada);
+  const responder = blocos => {
+    if (!aviso && !blocos.length) return null;
+    const corpo = blocos.length ? cortarPorLinha(blocos.join("\n\n"), TETO_HOOK - (aviso ? aviso.length + 2 : 0), "contexto cortado no teto do hook") : "";
+    return contexto("UserPromptSubmit", [aviso, corpo].filter(Boolean).join("\n\n"));
+  };
   const achadas = casar(entrada.prompt, lerEntradas(memoriaDir), { contexto: contextoAberto(cwd), dataHoje: hoje() });
   const pasta = paraBarra(path.relative(cwd, memoriaDir)) || PASTA;
   const estados = lerEstados(memoriaDir).filter(estado => citaEstado(entrada.prompt, estado) && marcarInjetado(entrada.session_id, estado.versao)).map(estado => blocoDoEstado(estado, pasta));
-  if (!achadas.length) return estados.length ? contexto("UserPromptSubmit", cortarPorLinha(estados.join("\n\n"), TETO_HOOK, "contexto cortado no teto do hook")) : null;
+  if (!achadas.length) return responder(estados);
   registrarInjecao(memoriaDir, achadas.map(item => item.id));
   const linhas = achadas.map(item => `- ${pasta}/${limpar(item.caminho)}${item.geral ? ` (seção "${limpar(item.secao)}")` : ""}${item.superseded_by ? ` (substituída por ${limpar(item.superseded_by)})` : ""} - ${limpar(item.description).replace(/\s+/g, " ").slice(0, 256)}`);
-  return contexto("UserPromptSubmit", cortarPorLinha([...estados, `Registros da memória ligados a este pedido (leia o que for relevante antes de agir):\n${cercar(linhas)}`].join("\n\n"), TETO_HOOK, "contexto cortado no teto do hook"));
+  return responder([...estados, `Registros da memória ligados a este pedido (leia o que for relevante antes de agir):\n${cercar(linhas)}`]);
 }
 
 export function postToolUse(entrada) {

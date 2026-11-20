@@ -76,7 +76,7 @@ Todo hook responde JSON válido, termina com exit 0, nunca bloqueia e falha em s
 | Momento | O que acontece |
 |---|---|
 | Início da sessão (inclusive depois de compactar) | Claude Code e Codex recebem um resumo em camadas com orçamento de 4000 caracteres (`MEMORY_SAVER_ORCAMENTO`, piso 1500, teto 9000), o handoff preenchido e o estado do projeto; fixados primeiro, depois feedbacks gerais de comportamento e o contexto aberto. Itens continuam sujeitos ao orçamento |
-| Cada pedido | Claude Code e Codex recebem até 5 ponteiros diretos, seguidos por registros relacionados via `[[links]]`, sem ultrapassar o limite. A busca casa nome, descrição, texto e contexto; contexto aberto tem prioridade |
+| Cada pedido | Claude Code e Codex recebem até 5 ponteiros diretos, seguidos por registros relacionados via `[[links]]`, sem ultrapassar o limite. A busca casa nome, descrição, texto e contexto; contexto aberto tem prioridade. Antes deles vem o aviso de contexto: o hook lê a cauda do transcript (Claude: `input_tokens` mais cache lido e escrito da última resposta; Codex: `last_token_usage.input_tokens` do último `token_count`, achando o rollout pelo `session_id` quando a entrada não traz `transcript_path`) e avisa a partir de 400k, insistindo a partir de 700k |
 | Escrita em `memoria/` | O hook do Claude Code refaz o índice e avisa sobre segredo ou frontmatter inválido. Codex atualiza a recuperação no próximo pedido/sessão; o handoff é escrito explicitamente, sem captura automática de prompts ou transcript |
 
 Tudo o que é injetado vai dentro de uma cerca `memoria-historico-nao-confiavel`, com o aviso de que memória é dado, não instrução, e passa por redação de segredos antes de sair.
